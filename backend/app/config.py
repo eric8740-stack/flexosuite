@@ -31,7 +31,13 @@ DEMO_MODE = os.getenv("DEMO_MODE", "0") == "1"
 # Il n'est utile qu'en developpement, quand le front tourne sur son propre
 # port. On l'active alors EXPLICITEMENT, en listant les origines exactes :
 #
-#     CORS_ORIGINES=http://127.0.0.1:3000,http://localhost:3000
+#     CORS_ORIGINES=http://localhost:3000
+#
+# ⚠️ UN SEUL NOM D'HOTE, le meme que celui employe par le front. `localhost` et
+# `127.0.0.1` sont deux hotes DIFFERENTS pour la regle same-site : les melanger
+# donne une session qui « ne tient pas », sans le moindre message d'erreur.
+# La marche a suivre complete est dans le README, section « Demarrage en
+# developpement ».
 #
 # Vide par defaut = middleware absent. Un defaut permissif serait livre chez le
 # client sans que personne ne le remarque.

@@ -2,7 +2,7 @@ name: CI
 
 # Deux verifications, et les deux sont requises sur `main` :
 #   test  - le backend passe ses tests
-#   build - le front sort en EXPORT STATIQUE
+#   build - le front passe son lint, ses tests, et sort en EXPORT STATIQUE
 #
 # Le second n'est pas un confort : si l'export casse, le package client ne peut
 # plus etre assemble. Mieux vaut le voir ici que le jour de la livraison.
@@ -62,6 +62,18 @@ jobs:
       - name: Dependances
         working-directory: frontend
         run: npm ci
+
+      # Lint et tests AVANT le build, et dans le meme job : `build` est un
+      # check REQUIS sur `main`. Un troisieme job ne le serait pas tant que la
+      # protection de branche ne le reclame pas — il pourrait echouer sans rien
+      # empecher. Ici, une regression de lint ou un test rouge bloque la PR.
+      - name: Lint
+        working-directory: frontend
+        run: npm run lint
+
+      - name: Tests du front
+        working-directory: frontend
+        run: npm run test
 
       - name: Export statique
         working-directory: frontend

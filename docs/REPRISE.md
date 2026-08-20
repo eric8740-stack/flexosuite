@@ -17,6 +17,23 @@
   ⚠️ `docs/CONTRAT-API.md` **ne bouge plus sans annonce**, et le backend est
   livré **avant** le front à chaque évolution.
 
+## Mergé sur `main`, ou seulement en PR — au 20/08/2026
+
+La distinction compte : une PR ouverte n'est **pas** l'état du dépôt. Ce qu'un
+autre poste obtient par `git pull` s'arrête à la première colonne.
+
+| PR | Objet | État |
+| --- | --- | --- |
+| #1 à #6 | contrat v0, moteur, montants dorés, contrat v1, front lot 3 | **mergées** |
+| #7 | les sept constats de l'audit externe — CORS, états de livraison, cookie, codes d'erreur | **mergée** |
+| #9 | front : aiguillage sur le code d'erreur, réglage CORS documenté dans `frontend/AGENTS.md` | **mergée** |
+| #8 | `frontend/.env.example` versionné, `.gitignore` à exception nominative, configuration de dev dans le README | **ouverte — chez l'audit** |
+| #10 | contrôles du front câblés dans la CI, exemple CORS à un seul hôte | **ouverte — chez l'audit** |
+
+⚠️ **#8 et #10 se recouvrent sur `backend/app/config.py`** : les deux corrigent
+l'exemple CORS. #10 va plus loin (renvoi au README). Merger #10 d'abord, puis
+rebaser #8 — la résolution tient en un bloc de commentaire.
+
 ## Fait
 
 - **Dépôt créé**, documentation et garde-fou de confidentialité. Aucun code
@@ -112,6 +129,27 @@ Replié ici pour que l'état du projet tienne en un seul document.
 - Recette passée : lint et build en export verts, export servi par le backend en
   mono-port **sans URL absolue dans le bundle**, écrans essayés en 1280 et en
   390 de large, dégradation sans backend vérifiée.
+- **PR #9** (mergée) : le client d'API s'aiguille sur le **code d'erreur** du
+  contrat, pas sur le texte ; **10 tests Vitest** ; `frontend/AGENTS.md`
+  documente le réglage backend `CORS_ORIGINES`.
+
+## Correction transversale du 20/08 — CI et exemple CORS (PR #10)
+
+Deux constats remontés par CC2, sans effet sur le métier ni sur un montant doré.
+
+- **Les tests du front ne tournaient que chez CC2.** La CI se contentait de
+  `npm ci` puis `npm run build` : les 10 tests Vitest et le lint n'étaient
+  vérifiés nulle part en intégration. Ils sont désormais exécutés **dans le job
+  `build`**, dans l'ordre lint → test → build, tous depuis `frontend/`.
+  Le choix du job n'est pas cosmétique : `build` est un check **requis** sur
+  `main`. Un troisième job ne le serait pas tant que la protection de branche ne
+  le réclame pas — il pourrait échouer sans rien empêcher.
+- **L'exemple CORS de `backend/app/config.py` mélangeait `127.0.0.1` et
+  `localhost`.** Remplacé par une origine unique, avec l'avertissement et le
+  renvoi au README. Le port n'entre pas dans la définition de *same-site*,
+  **l'hôte si** : les mélanger donne un cookie `SameSite=Strict` qui ne tient
+  pas, **sans message d'erreur**. Un exemple qui modèle la mauvaise pratique
+  finit recopié.
 
 ## Prochaine étape
 
@@ -122,3 +160,7 @@ il reste à livrer le backend, puis à mettre à jour la table d'état de livrai
 
 Reste aussi au moteur : l'**optimiseur** qui choisit entre configurations. Il a
 besoin des barèmes, donc du lot 2.
+
+Avant d'ouvrir le lot 2 : **#8 et #10 doivent revenir de l'audit** — elles
+touchent le même fichier de configuration, et les laisser traîner ouvertes fait
+diverger l'état réel de ce document.

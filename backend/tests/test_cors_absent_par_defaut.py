@@ -50,11 +50,14 @@ def test_absent_quand_le_reglage_est_vide(monkeypatch):
 
 def test_present_quand_des_origines_sont_listees(monkeypatch):
     """En developpement, le front tourne sur son propre port : la, il sert."""
-    module = _recharger_app(monkeypatch, "http://127.0.0.1:3000,http://localhost:3000")
+    # Deux origines pour eprouver le decoupage, mais UN SEUL nom d'hote :
+    # melanger `localhost` et `127.0.0.1` dans un exemple reviendrait a modeler
+    # la mauvaise pratique — ce sont deux hotes differents pour same-site.
+    module = _recharger_app(monkeypatch, "http://localhost:3000,http://localhost:3001")
     assert _a_du_partage_d_origine(module.app)
     assert module.CORS_ORIGINES == [
-        "http://127.0.0.1:3000",
         "http://localhost:3000",
+        "http://localhost:3001",
     ]
 
 
