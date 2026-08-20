@@ -50,13 +50,26 @@
 > imports du Python embarqué vérifiés, aucun chemin interne au-delà de
 > 150 caractères.
 
-## Lot 1 — Moteur
+## Lot 1 — Moteur ✅
 
-Géométrie, optimisation de pose, 8 sens d'enroulement, coûts P1–P7, paramètres.
-**Pur, sans base de données.** En **TDD** : les valeurs sacrées deviennent des
-tests **avant** l'implémentation.
+Géométrie, chaîne de pose, 8 sens d'enroulement, coûts P1–P7. **Pur, sans base de
+données.** Écrit en **TDD** : les montants dorés sont passés en test **avant**
+l'implémentation.
 
-> **🔴 Porte G2** — les **montants dorés** tombent au centime ?
+- [x] `moteur/types.py` — aucun champ tarifaire ne porte de valeur par défaut
+- [x] `moteur/couts.py` — les 7 postes, **arrondi reproduit poste par poste**
+- [x] `moteur/geometrie.py` — la chaîne de pose en fonctions pures
+- [x] `moteur/sens.py` — les 8 sens et le piège des paires
+- [x] Jeu doré dans un **module de fixtures unique**, garde-fou recalé dessus
+
+> **🟢 Porte G2 — FRANCHIE le 20/08/2026.** **40 tests verts**, dont les cinq
+> montants dorés et les trois invariants de calage. Chaque poste est vérifié
+> **séparément** : un total juste par compensation de deux erreurs resterait
+> invisible.
+
+**Reste au moteur, pour plus tard** : l'optimiseur qui *choisit* entre
+configurations (score, coefficients de vitesse et de gâche cumulés) — il a besoin
+des barèmes, donc du lot 2.
 
 ## Lot 2 — Données et API
 
