@@ -164,7 +164,10 @@ Push-Location $BackendStage
 $rcImports = $LASTEXITCODE
 Pop-Location
 if ($rcImports -ne 0) {
-    throw "un module DU PROJET ne s'importe pas dans le Python embarque (voir PYTHONPATH dans _env.bat)."
+    throw ("un module DU PROJET ne s'importe pas dans le Python embarque. " +
+           "Le chemin d'import est declare dans python*._pth, ecrit a l'etape 1/7 " +
+           "de ce script. Ce n'est PAS PYTHONPATH : un Python embeddable l'ignore " +
+           "des qu'un ._pth existe (cf. le commentaire de _env.bat).")
 }
 Ok "Modules du projet : importables comme le feront les scripts"
 

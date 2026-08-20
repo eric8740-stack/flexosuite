@@ -29,6 +29,33 @@ quasi compatible plutôt que d'en fabriquer un neuf.
 - **Code et données séparés** : les données vivent dans `%ProgramData%\FlexoSuite`,
   hors du dossier de code — une mise à jour ne peut rien détruire.
 
+## Démarrage en développement
+
+En développement seulement, le front tourne sur son propre port et parle au
+backend sur le sien. Il faut alors **deux** réglages, un de chaque côté :
+
+```bash
+# backend — autorise le partage d'origine, avec les origines EXACTES
+CORS_ORIGINES=http://localhost:3000
+
+# frontend (.env.development, non versionné)
+NEXT_PUBLIC_API_URL=http://localhost:8000
+```
+
+Sans `CORS_ORIGINES`, le navigateur bloque les appels : **c'est voulu**. Le
+partage d'origine n'existe que si on le demande — les deux livrables tournent en
+mono-port et n'en ont aucun besoin, et un réglage permissif par défaut finirait
+livré chez le client.
+
+> ⚠️ **Employez le même nom d'hôte des deux côtés.** `127.0.0.1` et `localhost`
+> sont deux hôtes **différents** : les mélanger produit une session qui « ne
+> tient pas », sans le moindre message d'erreur. Le port, lui, n'a aucune
+> importance.
+
+Au build du package, `NEXT_PUBLIC_API_URL` est **retirée** : la base d'API
+redevient relative, et le backend sert le front. C'est ce qui rend le mono-port
+possible.
+
 ## Documentation
 
 | Document | Contenu |
