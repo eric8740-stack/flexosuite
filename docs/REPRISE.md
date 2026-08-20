@@ -6,7 +6,8 @@
 ## En-tête
 
 - **Date** : 2026-08-20
-- **Lot en cours** : **0b — dépôt et squelette** (0a terminé)
+- **Lot en cours** : **0b terminé — prochain : lot 1, le moteur**
+- **Portes G0 et G1** : ✅ **franchies** (détail dans `docs/PLAN.md`).
 - **Porte G0** : ✅ **franchie**. La spec suffit à écrire le moteur sans rouvrir
   l'ancien dépôt et sans un chiffre d'atelier réel — § 7 de la spec pour le
   détail de ce qui reste (un catalogue à re-sourcer, et les courbes de barèmes
@@ -56,12 +57,26 @@
   sont **deux choses distinctes**. Le premier vit dans les fixtures de test, le
   second est vide de tarifs.
 
+## Lot 0b — livré et éprouvé
+
+- Backend FastAPI + Alembic sur SQLite, **mono-port** : le même processus sert
+  l'API et le front exporté. Vérifié sur le package installé — **un seul port en
+  écoute**.
+- Front Next en **export statique conditionnel** (`NEXT_OUTPUT=export`), base
+  d'API relative dans le package.
+- `deploy/windows/` complet, y compris **`reinitialiser-mot-de-passe.bat`** — le
+  script qui manquait au patron de référence.
+- CI en deux jobs **requis** sur `main`. Le job `build` refuse route API Next,
+  middleware et server action ; le job `test` vérifie aussi qu'il n'y a **qu'une
+  seule tête** de migration.
+- **Next passé en 16** : la version initiale portait une CVE. Audit à zéro
+  vulnérabilité — on ne livre pas ça chez un imprimeur.
+- `docs/CONTRAT-API.md` v0 — le document que CC2 lit comme une loi.
+
 ## Prochaine étape
 
-**Lot 0b — le dépôt et le squelette.** Publier le dépôt distant, copier
-l'arborescence du squelette de livraison, poser la CI `build` + `test` et la
-protection de branche. **Porte G1** : le zip s'installe sur un poste propre et
-sert une page en mono-port, données dans `%ProgramData%\FlexoSuite`.
+**Lot 1 — le moteur**, en TDD contre les **cinq montants dorés** et les trois
+invariants de calage. Pur, sans base de données.
 
-Puis **lot 1 — le moteur**, en TDD contre les cinq montants dorés et les trois
-invariants de calage.
+⚠️ Rappel avant d'écrire la première ligne : **l'arrondi se reproduit, il ne se
+normalise pas** (§ 3 bis de la spec).

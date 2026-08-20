@@ -33,18 +33,22 @@
 
 ## Lot 0b — Dépôt et squelette
 
-- [x] Dépôt local initialisé — **publication en attente** (création du dépôt
-      distant à lancer par Eric)
+- [x] Dépôt `eric8740-stack/flexosuite` public, poussé
 - [x] `docs/REPRISE.md` et `docs/PLAN.md` dès le premier commit
-- [ ] `CLAUDE.md` du projet
-- [ ] Arborescence copiée de la trésorerie (backend FastAPI + Alembic + SQLite,
-      front Next.js en export statique, `deploy/windows/`, `deploy/update.sh`)
-- [ ] CI `build` + `test`
-- [ ] Protection de branche sur `main`, les deux checks requis
+- [x] `CLAUDE.md` du projet
+- [x] Arborescence copiée du patron de livraison (backend FastAPI + Alembic +
+      SQLite, front Next en export statique conditionnel, `deploy/windows/`)
+- [x] CI `build` + `test` — le job `build` refuse route API Next, middleware et
+      server action ; le job `test` vérifie aussi l'unicité de la tête Alembic
+- [x] Protection de branche sur `main`, les deux checks requis
+- [x] `docs/CONTRAT-API.md` v0
 
-> **🔴 Porte G1** — le zip s'installe sur un poste propre et sert une page
-> **en mono-port**, données dans `%ProgramData%\FlexoSuite` ? Tant que ce
-> squelette vide ne tourne pas, **on n'écrit pas de métier**.
+> **🟢 Porte G1 — FRANCHIE le 20/08/2026.** Package de 22,7 Mo assemblé, dézippé
+> sur un dossier propre, `installer.bat` puis démarrage : la page **et** l'API
+> répondent sur **un seul port en écoute**, base et journaux créés dans
+> `%ProgramData%\FlexoSuite`. Les deux garde-fous du build ont été exercés —
+> imports du Python embarqué vérifiés, aucun chemin interne au-delà de
+> 150 caractères.
 
 ## Lot 1 — Moteur
 
