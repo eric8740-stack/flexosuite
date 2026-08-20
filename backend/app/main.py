@@ -15,20 +15,28 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from app.config import DEMO_MODE, STATIC_DIR
+from app.config import CORS_ORIGINES, DEMO_MODE, STATIC_DIR
 from app.routers import health
 
 app = FastAPI(title="FlexoSuite", version="0.1.0")
 
-# CORS : utile uniquement en developpement (deux ports). En production
-# mono-port, la page et l'API ont la meme origine et rien ne passe par ici.
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://127.0.0.1:3000", "http://localhost:3000"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# --- Partage d'origine : DEVELOPPEMENT UNIQUEMENT ----------------------------
+# Le middleware n'est monte QUE si des origines sont explicitement listees. Les
+# deux livrables tournent en mono-port : la page et l'API ont la meme origine,
+# et le partage d'origine n'y sert a rien. En laisser un actif « au cas ou »
+# reviendrait a livrer chez le client une autorisation dont il n'a pas besoin.
+#
+# Origines exactes, jamais `*` : l'application transporte une session par
+# cookie, et `*` avec des cookies est refuse par la specification. La garde est
+# dans app/config.py, au demarrage.
+if CORS_ORIGINES:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=CORS_ORIGINES,
+        allow_credentials=True,
+        allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        allow_headers=["Content-Type"],
+    )
 
 app.include_router(health.router, prefix="/api")
 

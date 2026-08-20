@@ -21,3 +21,38 @@ PORT = int(os.getenv("PORT", "8000"))
 
 # Mode demo : lecture seule, pour la vitrine publique.
 DEMO_MODE = os.getenv("DEMO_MODE", "0") == "1"
+
+# --- Partage d'origine (CORS) : DEVELOPPEMENT UNIQUEMENT --------------------
+#
+# Les deux livrables tournent en MONO-PORT : la page et l'API ont la meme
+# origine, et aucune requete ne passe par le partage d'origine. Il n'a donc
+# rien a faire dans le package Windows ni sur la demo.
+#
+# Il n'est utile qu'en developpement, quand le front tourne sur son propre
+# port. On l'active alors EXPLICITEMENT, en listant les origines exactes :
+#
+#     CORS_ORIGINES=http://127.0.0.1:3000,http://localhost:3000
+#
+# Vide par defaut = middleware absent. Un defaut permissif serait livre chez le
+# client sans que personne ne le remarque.
+_origines_brutes = os.getenv("CORS_ORIGINES", "").strip()
+CORS_ORIGINES = [o.strip() for o in _origines_brutes.split(",") if o.strip()]
+
+# `*` avec des cookies de session est refuse par la specification, et serait de
+# toute facon une porte ouverte. On echoue au demarrage plutot que de laisser
+# un reglage dangereux passer inapercu.
+if "*" in CORS_ORIGINES:
+    raise RuntimeError(
+        "CORS_ORIGINES ne peut pas valoir '*' : l'application transporte une "
+        "session par cookie. Listez les origines exactes."
+    )
+
+# --- Cookie de session ------------------------------------------------------
+#
+# `Secure` est un REGLAGE, pas une constante : la demo publique est en HTTPS et
+# l'exige, le package client tourne en HTTP sur le reseau de l'imprimerie et
+# s'en trouverait bloque. Defaut sur : la dérogation est explicite.
+COOKIE_SECURE = os.getenv("COOKIE_SECURE", "1") != "0"
+
+# Duree de vie d'une session, en heures. Au-dela, il faut se reconnecter.
+SESSION_DUREE_H = int(os.getenv("SESSION_DUREE_H", "12"))

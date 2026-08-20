@@ -6,11 +6,14 @@
 ## En-tête
 
 - **Date** : 2026-08-20
-- **Lot en cours** : **lot 1 terminé — prochain : lot 2, données et API**
+- **Lot en cours** : **lot 2 — données et API** (lots 0, 1 et 3 livrés)
 - **Portes G0, G1 et G2** : ✅ **franchies** (détail et critères dans
   `docs/PLAN.md`).
-- **Qui tient quoi** : **CC1** tient `backend/`, `docs/` et `deploy/`. **CC2 est
-  démarré** sur `frontend/` — le top départ a été donné le 20/08.
+- **Contrat d'API** : **v1**, annoncée à CC2 le 20/08 **avant écriture**. Chaque
+  section porte son **état de livraison** ; le journal des changements ouvre le
+  document.
+- **Qui tient quoi** : **CC1** tient `backend/`, `docs/` et `deploy/`. **CC2**
+  tient `frontend/` — lot 3 livré et mergé.
   ⚠️ `docs/CONTRAT-API.md` **ne bouge plus sans annonce**, et le backend est
   livré **avant** le front à chaque évolution.
 
@@ -86,11 +89,36 @@
 - **Le métrage monte deux fois** : nombre de tours plafonné, **puis** métrage
   arrondi au mètre supérieur. L'oublier fausse quatre postes à la fois.
 
+## Lot 3 — le front, livré par CC2
+
+Replié ici pour que l'état du projet tienne en un seul document.
+
+- **Socle** : Tailwind v4, ESLint 9, `globals.css` clair et sombre — le squelette
+  n'en avait aucun, alors que `npm run lint` est exigé vert. `src/lib-api.ts` a
+  laissé la place à `src/lib/api/` (types du contrat, client, façade).
+- **L'optimisation est le point d'entrée unique** : brief puis configurations en
+  cartes, **dans l'ordre reçu** — le tri du backend n'est pas rejoué. Moins de
+  trois propositions est présenté comme normal ; l'absence d'outil compatible
+  mène à une proposition chiffrée, pas à un échec ; `ml_total` s'affiche tel quel.
+- **Les trois obligations du chiffrage sont tenues** : coefficient à côté du
+  pourcentage avec la phrase qui dit que ce n'est pas un taux de marque, détail
+  par lot, calage mutualisé nommé.
+- **Les 8 sens sont dessinés par leurs deux vues**, avec un glyphe asymétrique
+  **dans les deux axes** — une forme symétrique rendrait 0 et 180° indiscernables.
+  Le piège des paires est traité de front : face imprimée écrite en toutes
+  lettres, sens jumeau nommé.
+- **Rien n'est figé** sur la session, la redirection au 401 ni l'écran
+  d'installation — conformément à l'annonce du contrat v1.
+- Recette passée : lint et build en export verts, export servi par le backend en
+  mono-port **sans URL absolue dans le bundle**, écrans essayés en 1280 et en
+  390 de large, dégradation sans backend vérifiée.
+
 ## Prochaine étape
 
 **Lot 2 — données et API.** Modèle mono-tenant, migrations Alembic, endpoints du
-contrat, auth sur le patron de livraison. **Ce lot touche `docs/CONTRAT-API.md`**
-— l'annoncer à CC2 avant, et livrer le backend en premier.
+contrat, session sur le patron de livraison. Le contrat v1 est **déjà annoncé** :
+il reste à livrer le backend, puis à mettre à jour la table d'état de livraison
+**dans la PR qui livre**.
 
 Reste aussi au moteur : l'**optimiseur** qui choisit entre configurations. Il a
 besoin des barèmes, donc du lot 2.

@@ -80,16 +80,23 @@ sessions, **pas de JWT réinventé**. Migrations Alembic.
 
 - Critère : un devis complet se crée et se rejoue par l'API ; migrations vertes.
 
-> **🟡 Contrat d'API gelé** dans `docs/CONTRAT-API.md` **avant** que CC2 parte.
-> Quand il bouge, le **backend est livré en premier** — l'inverse envoie le front
-> en 422.
+> **🟡 Contrat d'API : v1 annoncée le 20/08**, avant écriture du lot 2. Il porte
+> un **journal des changements** et un **état de livraison par section**. Quand il
+> bouge : annonce d'abord, **backend livré en premier** — l'inverse envoie le
+> front en 422.
 
-## Lot 3 — Front
+## Lot 3 — Front ✅ (livré par CC2, PR #6)
 
-Optimisation = **point d'entrée unique**, panneau Paramètres.
+Optimisation = **point d'entrée unique**, aperçu de chiffrage, les 8 sens.
 
-- Critère : `npm run build` en export statique passe, **zéro** route API Next,
-  **zéro** middleware, **zéro** server action ; servi par le backend en mono-port.
+- [x] Socle Tailwind + ESLint, thèmes clair et sombre
+- [x] Écran d'optimisation : configurations dans **l'ordre reçu**, moins de trois
+      présenté comme normal, outil à fabriquer présenté comme une alternative
+- [x] Aperçu de chiffrage : **coefficient**, détail par lot, calage mutualisé
+- [x] Les 8 sens, avec le piège des paires traité explicitement
+- [x] Export statique vert, servi en mono-port, **aucune URL absolue** dans le bundle
+- [ ] Session, redirection au 401, écran d'installation — **volontairement non
+      figés** tant que le backend du lot 2 n'est pas livré
 
 ## Lot 4 — Démo publique
 

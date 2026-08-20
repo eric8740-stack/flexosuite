@@ -4,11 +4,29 @@
 > CC1 le met à jour **avant** de changer quoi que ce soit, et **livre le backend
 > en premier**. L'inverse envoie le front en 422 — la leçon est déjà payée.
 >
-> **Ce qui existe aujourd'hui est marqué ✅** ; le reste arrive avec le lot 2.
-> Un endpoint absent répond 404, il ne répond pas « presque ».
+> **Chaque section porte son état de livraison** — voir le tableau ci-dessous.
+> Un endpoint « spécifié, pas encore livré » répond **404** : il ne répond pas
+> « presque », et le front ne doit pas coder comme s'il existait.
 >
 > Source de vérité métier : `docs/SPEC-METIER.md`. Si les deux divergent, c'est
 > la spec qui a raison et ce fichier qui est à corriger.
+
+## État de livraison, section par section
+
+| Section | État au 20/08/2026 |
+| --- | --- |
+| 1. Service — `GET /api/sante` | ✅ **livré** |
+| 1. Service — `GET /api/contexte` | ⚠️ **livré partiellement** : ne renvoie que `mode_demo`. Les trois autres champs arrivent avec le lot 2. |
+| 1 bis. Installation et session | ⏳ spécifié, **pas encore livré** |
+| 2. Optimisation de pose | ⏳ spécifié, **pas encore livré** |
+| 3. Chiffrage | ⏳ spécifié, **pas encore livré** — le moteur existe et est testé, l'endpoint non |
+| 4. Devis | ⏳ spécifié, **pas encore livré** |
+| 5. Référentiels | ⏳ spécifié, **pas encore livré** |
+| 6. Paramètres et calibration | ⏳ spécifié, **pas encore livré** |
+
+> ⚠️ **Un état de livraison faux est pire qu'une absence d'état** : il envoie le
+> front coder contre du vide en croyant l'endpoint disponible. Cette table est
+> mise à jour **dans la PR qui livre**, jamais après coup.
 
 ## 📣 Journal des changements — à lire avant de coder
 
@@ -24,7 +42,10 @@
 | **Assistant d'installation au premier démarrage** | ⚠️ **CASSANT en pratique** | Tant qu'aucun compte n'existe, les endpoints de données répondent **409** avec `"installation_requise"`. Le front doit envoyer vers l'assistant, **pas** afficher une page vide. |
 | **`GET /api/contexte` gagne trois champs** | additif | `installation_faite`, `calibration_faite`, `utilisateur`. Un front qui ignore ces champs continue de fonctionner — mais il affichera un devis calculé sans tarifs. |
 | **Endpoints `/api/auth/*` et `/api/installation`** | additif | Nouveaux. |
-| **Format d'erreur précisé pour 401 / 403 / 409** | précision | Voir « Erreurs » ci-dessous. |
+| **Toute erreur porte un `code` stable** | ⚠️ **CASSANT si le front lit `detail`** | Le corps devient `{"code": ..., "detail": ...}`. Le front aiguille sur `code`, **jamais** sur le texte : un message destiné à être lu se reformule, et un aiguillage bâti dessus casse en silence. |
+| **Cookie de session figé** | additif | `SameSite=Strict`, `HttpOnly`, `Secure` en **réglage**, expiration absolue de 12 h, révocation côté serveur. ⚠️ En développement, front et backend doivent employer **le même nom d'hôte** — `127.0.0.1` et `localhost` sont cross-site. |
+| **Contrôle d'origine sur les écritures** | additif | `POST`/`PUT`/`DELETE` refusés en **403 `origine_refusee`** si l'`Origin` n'est pas celle du service. |
+| **Partage d'origine réservé au développement** | ✅ **déjà livré** | Le middleware n'est monté **que** si des origines sont explicitement listées. Absent du package Windows et de la démo, qui sont mono-port. |
 | **Pagination précisée** | précision | `{"elements": [...], "total": n}`, paramètres `page` et `taille`. |
 
 **Ce que CC2 peut coder dès maintenant, sans risque** : les écrans
@@ -49,11 +70,42 @@ aperçu de chiffrage, devis, référentiels, calibration.
 | **Dimensions** | En **millimètres**, entiers ou décimaux selon le champ. Les longueurs de bande sont en **mètres linéaires**. |
 | **Langue** | Champs en **français**. Pas de `company`, pas de `width`. |
 | **Dates** | ISO 8601, UTC. |
-| **Erreurs** | `{"detail": "..."}` — le message est **affichable tel quel** à un deviseur. Pas de trace technique dans `detail`. |
-| **Codes** | 200 lecture · 201 création · 204 suppression · **401 session absente ou expirée** · **403 interdit (mode démo)** · 400 règle métier violée · 404 inconnu · 409 conflit d'état · 422 payload invalide. |
-| **Mode démo** | Quand il est actif, toute écriture répond **403** avec un message explicite. |
+| **Erreurs** | `{"code": "...", "detail": "..."}` — **toujours les deux**. Voir ci-dessous. |
+| **Codes HTTP** | 200 lecture · 201 création · 204 suppression · 400 règle métier violée · **401 session absente ou expirée** · **403 interdit** · 404 inconnu · 409 conflit d'état · 422 payload invalide. |
+| **Mode démo** | Quand il est actif, toute écriture répond **403** `mode_demo_lecture_seule`. |
 
-## 1. Service ✅
+### Le format d'erreur — deux champs, et ils ont deux publics
+
+```json
+{ "code": "installation_requise", "detail": "Aucun compte n'existe encore." }
+```
+
+| Champ | Pour qui | Règle |
+| --- | --- | --- |
+| `code` | **la machine** | Identifiant **stable**, en minuscules avec tirets bas. Il ne change jamais sans passer par le journal des changements. |
+| `detail` | **l'humain** | Phrase en français, **affichable telle quelle** à un deviseur. Aucune trace technique. Peut être reformulée à tout moment. |
+
+> ⚠️ **Le front ne décide jamais à partir de `detail`.** Un texte destiné à être
+> lu se reformule ; un aiguillage bâti dessus casse à la première relecture, et
+> il casse **en silence**. Toutes les erreurs que le front doit distinguer
+> portent un `code` — pas seulement le 409, sinon le front gérerait deux formes.
+
+**Les codes de la v1** — tout ajout passe par le journal des changements :
+
+| `code` | HTTP | Ce que le front doit faire |
+| --- | ---: | --- |
+| `session_absente` | 401 | Rediriger vers la connexion, **sans perdre la saisie en cours** |
+| `identifiants_invalides` | 401 | Rester sur la connexion, message générique |
+| `installation_requise` | 409 | Envoyer vers l'assistant d'installation |
+| `installation_deja_faite` | 409 | L'assistant ne se rejoue pas : renvoyer vers la connexion |
+| `calibration_requise` | 409 | Envoyer vers l'assistant de calibration |
+| `mode_demo_lecture_seule` | 403 | Expliquer que la démo est en lecture seule |
+| `origine_refusee` | 403 | Ne pas réessayer : c'est une écriture rejetée par sécurité |
+| `introuvable` | 404 | Message d'absence, pas de réessai |
+| `payload_invalide` | 422 | Signaler les champs fautifs |
+| `regle_metier` | 400 | Afficher `detail` tel quel — c'est du métier, pas une panne |
+
+## 1. Service — ✅ livré (`/api/contexte` partiellement)
 
 ### `GET /api/sante`
 
@@ -61,10 +113,15 @@ aperçu de chiffrage, devis, référentiels, calibration.
 { "statut": "ok", "application": "FlexoSuite" }
 ```
 
-### `GET /api/contexte`
+### `GET /api/contexte` — ⚠️ livré partiellement
 
 Ce que le front doit savoir **avant d'afficher quoi que ce soit**. Toujours
 accessible **sans session** : c'est lui qui dit s'il en faut une.
+
+> **Aujourd'hui il ne renvoie que `mode_demo`.** Les trois autres champs
+> décrits ci-dessous arrivent avec le lot 2. Un front qui les lit dès maintenant
+> recevra `undefined` — ne pas construire d'aiguillage dessus avant l'annonce de
+> livraison.
 
 ```json
 {
@@ -86,7 +143,7 @@ accessible **sans session** : c'est lui qui dit s'il en faut une.
    n'aurait aucun sens : ne pas proposer d'écran de devis, et surtout ne pas
    afficher de prix à zéro — un prix faux est pire qu'une absence de prix.
 
-## 1 bis. Installation et session
+## 1 bis. Installation et session — ⏳ pas encore livré
 
 Repris du patron de livraison locale : **hachage du mot de passe et révocation
 de session**, pas de jeton réinventé.
@@ -118,6 +175,42 @@ n'en a pas besoin, et ne pas pouvoir le lire est précisément la protection.
 Identifiants faux → **401**, avec un message volontairement **indifférencié** :
 on ne dit pas si c'est l'identifiant ou le mot de passe qui est faux.
 
+### Le cookie de session — figé ici, pas laissé à l'implémentation
+
+| Attribut | Valeur | Pourquoi |
+| --- | --- | --- |
+| Nom | `flexosuite_session` | — |
+| `HttpOnly` | **oui**, toujours | Le front ne lit jamais le jeton. Ne pas pouvoir le lire **est** la protection. |
+| `SameSite` | **`Strict`** | Voir la note ci-dessous : il **ne casse pas** le développement. |
+| `Secure` | **réglage**, pas constante | `true` sur la démo publique (HTTPS). `false` pour le package client, qui tourne en **HTTP** sur le réseau de l'imprimerie et serait sinon inutilisable. **Défaut : `true`** — la dérogation est explicite, jamais implicite. |
+| `Path` | `/` | Un seul port sert la page et l'API. |
+| Durée | **12 h**, expiration **absolue** | Réglable. Pas de prolongation glissante : une session oubliée sur un poste d'atelier finit par expirer, quoi qu'il arrive. |
+| Révocation | **côté serveur** | La déconnexion invalide la session en base, elle ne se contente pas d'effacer le cookie. Un cookie effacé sur un poste ne protège rien si le jeton reste valide. |
+
+> **`SameSite=Strict` ne casse pas le développement**, contrairement à l'intuition.
+> Le **port n'entre pas** dans la définition de *same-site* : `localhost:3000` et
+> `localhost:8000` sont bien same-site.
+>
+> ⚠️ **En revanche l'hôte, lui, compte** : `127.0.0.1` et `localhost` sont deux
+> hôtes **différents**, donc cross-site. En développement, front et backend
+> doivent employer **le même nom d'hôte** — les deux sur `localhost`, ou les deux
+> sur `127.0.0.1`. Les mélanger produit une session qui « ne tient pas », sans
+> aucun message d'erreur.
+
+### Contrôle d'origine sur toute écriture
+
+Toute requête **`POST`, `PUT`, `DELETE`** est refusée si son en-tête `Origin`
+n'est pas celle du service — **403 `origine_refusee`**.
+
+`SameSite=Strict` couvre déjà l'essentiel ; ce contrôle est la **deuxième
+serrure**, celle qui tient si un navigateur ancien ou une extension traite
+`SameSite` avec largesse. Les lectures ne sont pas concernées : elles ne
+modifient rien.
+
+En développement avec deux ports, les origines acceptées sont celles listées
+dans le réglage de partage d'origine — **la même liste**, pour qu'il n'y ait pas
+deux endroits où se tromper.
+
 ### `POST /api/auth/deconnexion`
 
 `204`, session **révoquée côté serveur** — pas seulement le cookie effacé.
@@ -133,7 +226,7 @@ La règle : **rediriger vers la connexion sans perdre le travail en cours**, et
 revenir sur l'écran quitté après reconnexion. Un devis à demi saisi qui
 disparaît parce qu'une session a expiré est une perte sèche pour le deviseur.
 
-## 2. Optimisation de pose — le point d'entrée unique
+## 2. Optimisation de pose — le point d'entrée unique — ⏳ pas encore livré
 
 ### `POST /api/optimisation/configurations`
 
@@ -228,7 +321,7 @@ appliquer aux deux vues :
 > sens indiscernables — et une vue planche fausse, c'est un cliché posé à
 > l'envers et un tirage entier à jeter.
 
-## 3. Chiffrage
+## 3. Chiffrage — ⏳ pas encore livré
 
 ### `POST /api/devis/apercu`
 
@@ -305,7 +398,7 @@ modification pour tenir un prix à jour.
 
 Même réponse, pour un devis déjà enregistré.
 
-## 4. Devis
+## 4. Devis — ⏳ pas encore livré
 
 | Verbe | Route | Effet |
 | --- | --- | --- |
@@ -318,7 +411,7 @@ Même réponse, pour un devis déjà enregistré.
 Le devis porte un **numéro attribué par le serveur** — le front ne le fabrique
 jamais. Statuts : `brouillon`, `envoye`, `accepte`, `refuse`.
 
-## 5. Référentiels
+## 5. Référentiels — ⏳ pas encore livré
 
 Même forme pour tous : `GET` liste · `GET /{id}` · `POST` · `PUT /{id}` ·
 `DELETE /{id}`.
@@ -332,7 +425,7 @@ Même forme pour tous : `GET` liste · `GET /{id}` · `POST` · `PUT /{id}` ·
 | Clients | `/api/clients` | coordonnées + **contrainte d'intervalle** de sa machine de pose |
 | Options | `/api/options` | ressources requises, coefficients vitesse et gâche, tarification, drapeau silhouette |
 
-## 6. Paramètres et calibration
+## 6. Paramètres et calibration — ⏳ pas encore livré
 
 ### `GET /api/parametres/couts` · `PUT /api/parametres/couts`
 
