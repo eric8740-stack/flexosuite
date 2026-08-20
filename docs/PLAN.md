@@ -15,8 +15,8 @@
 - [x] Le **jeu doré** fabriqué : paramètres ronds et fictifs, passés dans
       l'ancien moteur → 1er cas de référence à **1 777,00 € HT**
 - [x] Garde-fou de confidentialité vert (`tests/test_confidentialite_livraison.py`)
-- [ ] **La chaîne de pose** (format + cylindre → poses → laizes → métrage)
-- [ ] Règle du bord et plafonnement à `laize_utile`
+- [x] **La chaîne de pose** (format + cylindre → poses → laizes → métrage)
+- [x] Règle du bord et plafonnement à la laize utile
 - [ ] Les 8 sens d'enroulement
 - [ ] Règle silhouette
 - [ ] Logique du « format approchant »

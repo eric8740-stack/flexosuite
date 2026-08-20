@@ -236,6 +236,121 @@ DevisInput(
 ✅ **Produit par l'ancien moteur avec le jeu doré, et recontrôlé à la main.**
 V1a est reproductible depuis ce document seul.
 
+## 5 bis. La chaîne de pose — du format d'étiquette au métrage
+
+C'est le cœur du système. Tout ce qui suit est de la **géométrie et de la
+convention flexo** : des fonctions pures, sans base de données, et sans une seule
+valeur d'atelier.
+
+### Étape 1 — poses en développé (sur le tour de cylindre)
+
+```
+pas       = hauteur_etiquette + intervalle_dev_min
+nb_poses  = plancher( developpe_cylindre / pas )
+intervalle_reel = developpe_cylindre / nb_poses − hauteur_etiquette
+si intervalle_reel < intervalle_dev_min :
+    nb_poses -= 1  et on recalcule l'intervalle
+si nb_poses == 0 : configuration impossible
+```
+
+Le repli d'une pose est **volontaire** : on préfère perdre une pose plutôt que de
+descendre sous l'intervalle minimum. L'intervalle réel se **redistribue** sur le
+tour — il n'est pas figé au minimum.
+
+### Étape 2 — poses en laize (en travers de la bande)
+
+Pour chaque nombre de poses envisagé (« variante ») :
+
+```
+espace_dispo = laize_utile − nb_poses_laize × largeur_etiquette
+si espace_dispo < 0        : variante impossible
+si nb_poses_laize == 1     : intervalle = 0
+sinon : intervalle = min( espace_dispo / (nb_poses_laize − 1) , INTERVALLE_LAIZE_MAX )
+```
+
+**`INTERVALLE_LAIZE_MAX` = 5 mm**, et c'est une **pratique standard flexo**, pas un
+réglage d'atelier : au-delà, ce n'est plus un intervalle utile, c'est de la matière
+perdue. On accepte donc des **bords perdus** sur la bobine plutôt qu'une plaque
+étirée sur toute la laize.
+
+Un **forçage** de l'intervalle est possible (souveraineté du deviseur) : il
+**contourne le plafond** — certains cas particuliers l'exigent — et seule la
+faisabilité géométrique est alors vérifiée.
+
+### Étape 3 — largeur de plaque
+
+```
+laize_plaque = nb_poses_laize × largeur_etiquette + (nb_poses_laize − 1) × intervalle_laize
+```
+
+⚠️ **Ce sont les intervalles INTERNES**, au nombre de `N − 1`. Ce ne sont **pas**
+les bords : sur la bobine, les bords sont libres et se traitent à l'étape 4.
+
+### Étape 4 — laize papier commandée au fournisseur
+
+```
+laize_mini  = laize_plaque + 2 × bord_lateral
+papier      = arrondi_au_palier_superieur( laize_mini , palier_fournisseur )
+papier      = min( papier , laize_utile )          ← plafond : la presse rogne
+papier      = max( papier , laize_mini_roulable )  ← plancher : contrainte presse
+chute_reelle_par_cote = ( papier − laize_plaque ) / 2
+```
+
+L'ordre compte : **plafond d'abord, plancher ensuite**. Le `bord_lateral` vient du
+barème d'échenillage (§ 7) ou d'une surcharge du deviseur ; le
+`palier_fournisseur` traduit le fait que les matières se livrent par paliers
+standard. La plaque est posée **centrée** sur la bobine — pas d'asymétrie
+gauche/droite.
+
+### Étape 5 — métrage
+
+```
+poses_total = nb_poses_dev × nb_poses_laize
+nb_tours    = plafond( quantite / poses_total )
+ml_total    = nb_tours × developpe_cylindre / 1000
+```
+
+**Convention métier : on finit toujours le tour entamé.** D'où le plafond, et non
+un arrondi. Une étiquette de plus qu'un multiple exact coûte un tour entier.
+
+### Étape 6 — dérivés
+
+```
+m2_consomme = ml_total × laize_papier / 1000
+rendement % = ( quantite × largeur × hauteur / 1 000 000 ) / m2_consomme × 100
+```
+
+**Diamètre de bobine** — modèle volumique, couches jointives, air négligé :
+
+```
+rayon = racine( rayon_mandrin² + ( epaisseur_reelle × ml_total × 1000 ) / π )
+diametre = arrondi( 2 × rayon )
+```
+
+Les deux inversions de cette formule existent et sont utiles à l'UI : combien
+d'étiquettes tiennent dans un diamètre donné, et quel diamètre il faut pour un
+nombre d'étiquettes donné. Le **pas** y vaut `hauteur + intervalle_dev`.
+
+⚠️ **Invariant** : l'épaisseur est celle de la **matière réelle**. Une valeur de
+repli qui ignorerait la matière est un défaut, pas une commodité.
+
+### Étape 7 — le choix entre configurations
+
+L'optimiseur balaie **cylindres × machines compatibles × variantes de poses**,
+écarte les configurations infaisables, cumule des **coefficients multiplicatifs**
+(vitesse et gâche), et classe :
+
+```
+score = score_du_palier × coef_vitesse_cumulé / coef_gâche_cumulé
+```
+
+À palier égal, une configuration plus rapide et moins gâcheuse gagne. Deux règles
+de conduite reprises telles quelles :
+
+- **On ne dégrade jamais une contrainte pour remplir le classement.** S'il y a
+  moins de candidats que de places, on en retourne moins.
+- Les configurations en doublon sont fusionnées avant classement.
+
 ## 6. Cas de référence P0b et D1 — structure figée, montants à produire
 
 **P0b — chemin multi-lots, un seul lot.** Structure :
@@ -257,9 +372,9 @@ Dépendances de fixture à figer explicitement : presse de laize utile **320 mm*
 **aucune couleur** dans le payload → **P2 = 0 €**, volontairement, pour rendre le
 cas déterministe · pas d'override de marge.
 
-**Le plafond de laize mord ici, et c'est le cœur du cas** : laize plaque
-= 3 poses × 100 mm + 2 bords = **310 mm** ; papier brut = **330 mm** ; plafonné à
-la laize utile = **320 mm**.
+**Le plafond de laize mord ici, et c'est le cœur du cas** : plaque = **310 mm**,
+papier brut arrondi = **330 mm**, plafonné à la laize utile = **320 mm**. Le détail
+du calcul est au § 5 bis.
 
 **D1 — le calage suit le montage.** Même fixture, **deux lots identiques** :
 
@@ -281,12 +396,12 @@ lue**.
 
 Tant que cette liste n'est pas vide, on **n'écrit pas de moteur**.
 
-- [ ] **La chaîne de pose** — comment on passe du format étiquette et du cylindre
-      au couple (`nb_poses_laize`, `nb_poses_dev`), puis à `laize_utile`,
-      `laize_papier` et `ml_total`. **C'est ce qui manque pour produire les
-      montants dorés de P0b et D1.**
-- [ ] **La règle du bord** et le **plafonnement à la laize utile** — la chaîne
-      exacte qui transforme 3 poses × 100 mm en 310 puis 320 mm.
+- [x] **La chaîne de pose** — § 5 bis, des 7 étapes du format au métrage.
+- [x] **La règle du bord** et le **plafonnement à la laize utile** — § 5 bis
+      étapes 3 et 4. Le 310 vient des **(N−1) intervalles internes** plafonnés à
+      5 mm, pas des bords : c'est l'étape 4 qui traite les bords.
+- [ ] Les **montants dorés** de P0b et D1 — la chaîne est connue, il reste à la
+      dérouler avec le jeu doré et un catalogue de cylindres re-sourcé.
 - [ ] **Les 8 sens d'enroulement** — table de correspondance.
 - [ ] **La règle silhouette** : forme ≠ rectangle, rayon hors valeurs standard, ou
       prédécoupe / microperfo / pose mixte → oriente la recherche de format.
