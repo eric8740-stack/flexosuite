@@ -16,6 +16,15 @@ venv/
 .env.*
 settings.local.json
 
+# ... SAUF le SEUL modele existant, qui ne contient aucun secret et qu'un poste
+# neuf recopie pour demarrer. L'exception vise UN CHEMIN, pas un motif : ni
+# `*.example` ni `**/.env.example`, qui rendraient versionnable un modele que
+# personne n'a relu. Un futur modele s'ajoute ici, ligne par ligne.
+#
+# Surtout pas d'exception pour `.env.development` : c'est le fichier REEL du
+# poste, celui qui finira par contenir une cle.
+!frontend/.env.example
+
 # Node / Next
 node_modules/
 .next/
