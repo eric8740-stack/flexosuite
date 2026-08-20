@@ -130,9 +130,12 @@ final qui mord (`1 245,22 × 1,275 = 1 587,6555` → **1 587,66**).
 ## 3. Le calcul d'ensemble
 
 ```
-cout_revient  = Σ P1..P7
+cout_revient  = arrondi_2déc( Σ P1..P7 )
 prix_vente_ht = arrondi_2déc( cout_revient × (1 + marge) )
 ```
+
+**Il y a bien deux arrondis** : le coût de revient est arrondi **avant** que la
+marge s'applique. La carte complète est au **§ 3 bis**.
 
 Tous les calculs intermédiaires sont en `Decimal` — **jamais** en flottant.
 
@@ -162,6 +165,55 @@ en fraction. **Ni** `Entreprise.pct_marge_defaut`, **ni** une constante de repli
 les deux existaient et ont été retirées. Priorité : override porté par le devis,
 sinon paramètres. **Pas de troisième niveau** : sans paramètres, le moteur lève une
 erreur explicite plutôt que de fabriquer un prix.
+
+## 3 bis. Où l'arrondi tombe — la carte, poste par poste
+
+> **L'arrondi se reproduit, il ne se normalise pas.** Les montants dorés sortent de
+> l'ancien moteur **avec son arrondi**, incohérences comprises. Uniformiser est un
+> chantier **séparé**, décidé après coup, avec re-baseline explicite. **Un montant
+> doré ne se retouche jamais pour faire tomber un calcul.**
+
+Tous les arrondis sont à **2 décimales**. Ce qui change d'un poste à l'autre, c'est
+**combien de fois** on arrondit et **à quel moment**.
+
+| Poste | Où l'arrondi tombe | Nombre d'arrondis |
+| --- | --- | ---: |
+| **P1 Matière** | une seule fois, sur `poids × prix_kg` | 1 |
+| **P2 Encres** | les sous-totaux par type d'encre se somment **BRUTS** ; l'arrondi ne tombe qu'**une fois, sur le total** | 1 |
+| **P3 Outillage** | les clichés sont arrondis · l'outil est arrondi (**après** le facteur forme spéciale, s'il s'applique) · **puis leur somme est ré-arrondie** | 3 |
+| **P4 Calage** | sur le forfait (sans effet : il est déjà à 2 décimales) | 1 |
+| **P5 Roulage** | une seule fois, sur `temps × prix horaire` | 1 |
+| **P6 Finitions** | la **base est arrondie**, **puis** `base + forfaits ST` est ré-arrondi | 2 |
+| **P7 Main d'œuvre** | une seule fois, sur `heures × prix horaire` | 1 |
+| **Coût de revient** | `arrondi( Σ des 7 postes )` | 1 |
+| **Prix de vente** | `arrondi( coût_de_revient_déjà_arrondi × (1 + marge) )` — **double arrondi** | 1 |
+| **Prix au mille** | `arrondi( prix_vente × 1000 / nb_étiquettes )` | 1 |
+| **Multi-lots, par lot** | si le calage est dédupliqué : `arrondi( (revient − calage) × (1 + marge) )` | 1 |
+| **Multi-lots, totaux** | `arrondi( Σ des prix de lot **déjà arrondis** )` | 1 |
+
+### ⚠️ Le mode d'arrondi n'est pas le même partout
+
+C'est le piège le plus coûteux, parce qu'il est invisible :
+
+| Emplacement | Mode |
+| --- | --- |
+| **Tout le moteur de coûts** (les 7 postes, l'agrégation, le prix de vente) | **arrondi au pair le plus proche** — le défaut du type décimal |
+| **Le total du devis** | **arrondi au supérieur à la moitié**, demandé explicitement |
+| Le matcher de cylindres, sur une division entière | **troncature vers le bas** |
+
+Deux modes différents cohabitent donc sur la même chaîne. Sur une valeur
+exactement à mi-chemin — 0,125 par exemple — l'un rend 0,12 et l'autre 0,13.
+**À reproduire tel quel**, y compris cette divergence.
+
+### Les deux incohérences assumées
+
+1. **P2 et P3 ne se comportent pas pareil** alors qu'ils font la même chose
+   (sommer des sous-totaux) : P2 somme brut et arrondit une fois, P3 arrondit
+   chaque part **puis** ré-arrondit la somme.
+2. **P6 arrondit sa base avant d'ajouter un forfait**, ce que ne fait aucun autre
+   poste.
+
+Elles sont **dans les montants dorés**. Les corriger, c'est manquer les dorés.
 
 ## 4. Les sept postes — formules exactes
 
@@ -328,16 +380,16 @@ grandeur et un centime d'écart.
 | --- | --- | --- |
 | P1 `prix_kg` | 4,723756906077348… | **Division non terminante.** Ne jamais arrondir ici. |
 | P1 `poids_kg` | 49,028375 | Chaîne de multiplications sans arrondi intermédiaire |
-| P2 quadri | 3,7780875 kg → **70,46** | Chaque **sous-total est arrondi à 2 déc.**… |
-| P2 Pantone | 2,518725 kg → **58,94** | …**puis** les sous-totaux sont additionnés : 129,40 |
+| P2 quadri / Pantone | 3,7780875 kg et 2,518725 kg | Les sous-totaux se somment **bruts** — voir § 3 bis |
 | P5 `temps_production_h` | 0,5813953488372093… | Division non terminante, propagée sans arrondi |
 | P6 base | 109,828125 → **109,83** | Base arrondie **avant** l'ajout du forfait ST |
-| Total | 1 245,22 × 1,275 = 1 587,6555 | **L'arrondi final mord** (demi vers le haut) |
+| Coût de revient | Σ des postes → **1 245,22** | Le coût de revient est arrondi **avant** la marge |
+| Prix de vente | 1 245,22 × 1,275 = 1 587,6555 | **Double arrondi**, et le second mord |
 
-> **Règle qui en sort** : on n'arrondit qu'aux **frontières de poste** et au **prix
-> de vente**. Jamais dans une chaîne de calcul intermédiaire. L'ordre
-> « arrondir chaque sous-total, puis sommer » de P2 et P6 est **du comportement
-> observé**, à reproduire tel quel.
+> ⚠️ **Il n'existe pas de règle générale d'arrondi dans ce moteur** — et il ne faut
+> pas en inventer une. L'emplacement exact de chaque arrondi est cartographié au
+> **§ 3 bis**, poste par poste. Un moteur réécrit qui « nettoie » la règle ne
+> retombera pas sur les montants dorés.
 
 ## 5 ter. La chaîne de pose — du format d'étiquette au métrage
 
@@ -668,15 +720,35 @@ papier = arrondi_palier_sup( 310 + 2 × bord )  puis  min( … , laize_utile 320
 bord, et c'est **320 mm** qui est facturé. C'est le cœur de ce cas de référence —
 le détail des étapes est au § 5 ter.
 
-### ⚠️ Une incohérence d'affichage à ne pas reproduire
+### Le détail par lot — à figer au même titre que les totaux
 
-Dans l'ancien moteur, le **détail par lot** affiche `775,74 €` pour **chacun** des
-deux lots du cas M2 — alors que le total est `1 301,48 €`. Le détail ne somme donc
-pas au total : la déduplication du calage n'est appliquée qu'à l'agrégat.
+Un total juste avec un détail faux reste un devis que le deviseur ne peut pas
+défendre. **Le détail par lot fait donc partie du jeu doré**, et se fige en test.
 
-Un deviseur qui lit le détail ne peut pas réconcilier son devis. **Dans la
-réécriture, le détail par lot doit porter le calage dédupliqué** — c'est-à-dire
-afficher `775,74` puis `525,74`. Le total, lui, ne change pas.
+| Cas | Lot | Prix de vente HT | Coût de revient | Calage dédupliqué |
+| --- | ---: | ---: | ---: | ---: |
+| **M1** | 1 | 775,74 | 620,59 | 0,00 |
+| **M2** | 1 | 775,74 | 620,59 | 0,00 |
+| **M2** | 2 | **525,74** | **420,59** | **200,00** |
+| **M3** | 1 | 775,74 | 620,59 | 0,00 |
+| **M3** | 2 | 775,74 | 620,59 | 0,00 |
+
+**Le détail somme au total** : 775,74 + 525,74 = 1 301,48. C'est vrai **par
+construction** — le total est la somme des prix de lot déjà arrondis (§ 3 bis),
+et non un calcul parallèle. Cette propriété est elle-même à écrire en test :
+`Σ(prix de lot) == total`, sur les trois cas.
+
+**Une trace d'audit accompagne la déduplication** : chaque lot porte le montant de
+calage mutualisé (`0,00` ou `200,00`). C'est ce qui permet d'expliquer au client
+pourquoi son deuxième lot coûte moins cher que le premier — un argument
+commercial, pas seulement une ligne de calcul.
+
+> **Erratum du 20/08/2026.** Une lecture antérieure concluait que le détail par lot
+> ne sommait pas au total, et proposait de « corriger » ce point dans la
+> réécriture. **C'était une erreur de lecture** : le champ consulté était le calcul
+> brut du lot conservé pour audit, et non le prix du lot. L'ancien moteur
+> déduplique déjà correctement. Il n'y a **aucun écart volontaire** à protéger —
+> seulement des valeurs à reproduire.
 
 ## 7. État de la porte G0
 
