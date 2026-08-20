@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+
+# Bases de donnees locales : les donnees ne vivent JAMAIS dans le code
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+
+# Secrets et reglages locaux
+.env
+.env.*
+settings.local.json
+
+# Node / Next
+node_modules/
+.next/
+out/
+tsconfig.tsbuildinfo
+
+# Packaging Windows
+deploy/windows/staging/
+deploy/windows/dist/
+deploy/windows/.cache/
+
+# Divers
+.DS_Store
+graphify-out/
