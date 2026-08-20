@@ -16,8 +16,8 @@
 | Section | État au 20/08/2026 |
 | --- | --- |
 | 1. Service — `GET /api/sante` | ✅ **livré** |
-| 1. Service — `GET /api/contexte` | ⚠️ **livré partiellement** : ne renvoie que `mode_demo`. Les trois autres champs arrivent avec le lot 2. |
-| 1 bis. Installation et session | ⏳ spécifié, **pas encore livré** |
+| 1. Service — `GET /api/contexte` | ✅ **livré** — les quatre champs |
+| 1 bis. Installation et session | ✅ **livré** — lot 2a |
 | 2. Optimisation de pose | ⏳ spécifié, **pas encore livré** |
 | 3. Chiffrage | ⏳ spécifié, **pas encore livré** — le moteur existe et est testé, l'endpoint non |
 | 4. Devis | ⏳ spécifié, **pas encore livré** |
@@ -29,6 +29,39 @@
 > mise à jour **dans la PR qui livre**, jamais après coup.
 
 ## 📣 Journal des changements — à lire avant de coder
+
+### v1.1 — 20/08/2026, **livrée** avec le lot 2a
+
+> **Le backend est parti en premier**, comme annoncé. Ce qui suit était déjà
+> décrit en v1 : c'est la livraison, pas un changement de forme. Les seules
+> nouveautés sont des **précisions** — aucune ne casse ce que CC2 a écrit.
+
+**Ce qui est maintenant réel** (avant : 404 ou champ absent) :
+
+| Endpoint | Ce qui change pour le front |
+| --- | --- |
+| `GET /api/contexte` | Renvoie les **quatre** champs. `installation_faite` et `calibration_faite` sont exploitables. |
+| `POST /api/installation` | Existe. `201`, session ouverte dans la foulée. |
+| `POST /api/auth/connexion` · `POST /api/auth/deconnexion` · `GET /api/auth/moi` | Existent. |
+
+**Précisions ajoutées** — elles n'étaient pas écrites, elles le sont :
+
+| Point | Précision |
+| --- | --- |
+| Corps de réponse de `/api/installation`, `/api/auth/connexion` et `/api/auth/moi` | `{ "identifiant": "...", "role": "administrateur" }` — le **même objet** que `contexte.utilisateur`. Une seule forme d'utilisateur à écrire côté front. |
+| Longueur du mot de passe | **8 caractères au minimum**. En dessous : `422 payload_invalide`. Volontairement bas — c'est un poste d'atelier sur réseau local, et une exigence de complexité produit surtout des mots de passe sur un post-it. |
+| `POST /api/auth/deconnexion` sans session | Répond **`204`**, pas `401`. Renvoyer une erreur à quelqu'un qui veut partir n'a aucun sens. |
+| Requête d'écriture **sans en-tête `Origin`** | **Acceptée.** Tout navigateur en envoie un sur une écriture, y compris cross-site : une requête sans `Origin` ne vient pas d'un navigateur, donc aucun cookie n'est transporté à l'insu de l'utilisateur. Refuser casserait les scripts du package sans rien protéger de plus. |
+| `404` sur une **route inconnue** | Sort au format du contrat, `code: "introuvable"`. Aucune réponse d'erreur n'échappe à `{code, detail}` — sinon le front devrait écrire un cas particulier, et c'est ce cas particulier qui finirait par diverger. |
+| `calibration_faite` | Vrai quand **les neuf** paramètres de coûts sont renseignés. Au sortir de l'installation il vaut **faux** : l'application se livre à zéro tarif. |
+
+**Ce que CC2 peut débloquer maintenant** : l'écran d'installation, la connexion,
+la redirection au `401` et l'aiguillage sur `installation_faite` /
+`calibration_faite`. Ils étaient volontairement non figés — ils peuvent l'être.
+
+**Ce qui reste en 404** : optimisation, chiffrage, devis, référentiels,
+calibration. Leur forme est spécifiée, elle ne bouge pas ; ils arrivent aux
+lots 2b et 2c, **annoncés avant écriture** comme celui-ci.
 
 ### v1 — annoncée le 20/08/2026, avant écriture du lot 2
 
@@ -105,7 +138,7 @@ aperçu de chiffrage, devis, référentiels, calibration.
 | `payload_invalide` | 422 | Signaler les champs fautifs |
 | `regle_metier` | 400 | Afficher `detail` tel quel — c'est du métier, pas une panne |
 
-## 1. Service — ✅ livré (`/api/contexte` partiellement)
+## 1. Service — ✅ livré
 
 ### `GET /api/sante`
 
@@ -113,15 +146,10 @@ aperçu de chiffrage, devis, référentiels, calibration.
 { "statut": "ok", "application": "FlexoSuite" }
 ```
 
-### `GET /api/contexte` — ⚠️ livré partiellement
+### `GET /api/contexte` — ✅ livré
 
 Ce que le front doit savoir **avant d'afficher quoi que ce soit**. Toujours
 accessible **sans session** : c'est lui qui dit s'il en faut une.
-
-> **Aujourd'hui il ne renvoie que `mode_demo`.** Les trois autres champs
-> décrits ci-dessous arrivent avec le lot 2. Un front qui les lit dès maintenant
-> recevra `undefined` — ne pas construire d'aiguillage dessus avant l'annonce de
-> livraison.
 
 ```json
 {
@@ -143,7 +171,7 @@ accessible **sans session** : c'est lui qui dit s'il en faut une.
    n'aurait aucun sens : ne pas proposer d'écran de devis, et surtout ne pas
    afficher de prix à zéro — un prix faux est pire qu'une absence de prix.
 
-## 1 bis. Installation et session — ⏳ pas encore livré
+## 1 bis. Installation et session — ✅ livré (lot 2a)
 
 Repris du patron de livraison locale : **hachage du mot de passe et révocation
 de session**, pas de jeton réinventé.
@@ -156,8 +184,16 @@ Premier démarrage, **une seule fois**. Crée le compte administrateur.
 { "identifiant": "atelier", "mot_de_passe": "..." }
 ```
 
-`201` et une session ouverte dans la foulée. Si un compte existe déjà :
-**409** — l'assistant ne se rejoue pas, sinon il deviendrait une porte d'entrée.
+Le mot de passe fait **8 caractères au minimum** ; en dessous,
+`422 payload_invalide`.
+
+`201`, corps `{ "identifiant": "...", "role": "administrateur" }`, et une session
+ouverte dans la foulée — faire ressaisir le mot de passe qu'on vient de choisir
+n'apporterait rien. Si un compte existe déjà : **409** — l'assistant ne se
+rejoue pas, sinon il deviendrait une porte d'entrée.
+
+L'installation crée aussi la ligne de paramètres de coûts, **vide de tarifs**,
+avec la seule marge. `calibration_faite` vaut donc **faux** juste après.
 
 > Le mot de passe n'est stocké que **haché**. C'est pour cela que le package
 > livre `reinitialiser-mot-de-passe.bat` : sans lui, un mot de passe perdu
@@ -169,8 +205,10 @@ Premier démarrage, **une seule fois**. Crée le compte administrateur.
 { "identifiant": "atelier", "mot_de_passe": "..." }
 ```
 
-`200` + cookie de session **HttpOnly**. Le front ne lit jamais le jeton : il
-n'en a pas besoin, et ne pas pouvoir le lire est précisément la protection.
+`200`, corps `{ "identifiant": "...", "role": "administrateur" }` — **le même
+objet** que `contexte.utilisateur` — et cookie de session **HttpOnly**. Le front
+ne lit jamais le jeton : il n'en a pas besoin, et ne pas pouvoir le lire est
+précisément la protection.
 
 Identifiants faux → **401**, avec un message volontairement **indifférencié** :
 on ne dit pas si c'est l'identifiant ou le mot de passe qui est faux.
@@ -209,15 +247,26 @@ modifient rien.
 
 En développement avec deux ports, les origines acceptées sont celles listées
 dans le réglage de partage d'origine — **la même liste**, pour qu'il n'y ait pas
-deux endroits où se tromper.
+deux endroits où se tromper. L'origine du service elle-même est toujours
+acceptée, sans avoir à être listée.
+
+> **Une écriture sans en-tête `Origin` est acceptée**, et c'est délibéré. Tout
+> navigateur en envoie un sur une méthode d'écriture, y compris pour un
+> formulaire cross-site : une requête sans `Origin` ne vient donc pas d'un
+> navigateur, et sans navigateur il n'y a pas de cookie transporté à l'insu de
+> l'utilisateur. Refuser casserait les scripts du package et les tests sans
+> rien protéger de plus.
 
 ### `POST /api/auth/deconnexion`
 
 `204`, session **révoquée côté serveur** — pas seulement le cookie effacé.
 
+Sans session valide, la réponse reste **`204`**. Renvoyer une erreur à quelqu'un
+qui veut partir n'a aucun sens.
+
 ### `GET /api/auth/moi`
 
-`200` avec l'utilisateur courant, `401` sinon.
+`200` avec `{ "identifiant": "...", "role": "administrateur" }`, `401` sinon.
 
 ### Ce que le front doit faire d'un 401
 

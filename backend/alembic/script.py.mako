@@ -8,7 +8,6 @@ from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
-import sqlmodel  # types SQLModel dans les migrations autogénérées
 ${imports if imports else ""}
 
 # revision identifiers, used by Alembic.

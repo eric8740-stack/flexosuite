@@ -6,10 +6,12 @@
 ## En-tête
 
 - **Date** : 2026-08-20
-- **Lot en cours** : **lot 2 — données et API** (lots 0, 1 et 3 livrés)
+- **Lot en cours** : **lot 2 — données et API**. Sous-lot **2a livré**
+  (modèle, migrations, session) ; 2b et 2c à venir. Lots 0, 1 et 3 livrés.
 - **Portes G0, G1 et G2** : ✅ **franchies** (détail et critères dans
   `docs/PLAN.md`).
-- **Contrat d'API** : **v1**, annoncée à CC2 le 20/08 **avant écriture**. Chaque
+- **Contrat d'API** : **v1.1**. La v1 avait été annoncée **avant écriture** ;
+  la v1.1 est la **livraison** du lot 2a, pas un changement de forme. Chaque
   section porte son **état de livraison** ; le journal des changements ouvre le
   document.
 - **Qui tient quoi** : **CC1** tient `backend/`, `docs/` et `deploy/`. **CC2**
@@ -28,12 +30,12 @@ autre poste obtient par `git pull` s'arrête à la première colonne.
 | #7 | les sept constats de l'audit externe — CORS, états de livraison, cookie, codes d'erreur | **mergée** |
 | #9 | front : aiguillage sur le code d'erreur, réglage CORS documenté dans `frontend/AGENTS.md` | **mergée** |
 | #10 | contrôles du front câblés dans le check requis, exemple CORS à un seul hôte, CI en Node 24 | **mergée** — `main` à `0c1622a` |
-| #8 | `frontend/.env.example` versionné, exception de chemin dans `.gitignore`, configuration de dev au README | **rebasée sur `main`, ouverte — chez l'audit** |
+| #8 | `frontend/.env.example` versionné, exception de chemin dans `.gitignore`, configuration de dev au README | **mergée** — `main` à `c12749a` |
+| #11 | **lot 2a** : modèle mono-tenant, migrations, installation et session | **ouverte — chez l'audit** |
 
-**Le recouvrement de #8 et #10 sur `backend/app/config.py` est résolu.** Les deux
-corrigeaient l'exemple CORS ; #10 est mergée et va plus loin (renvoi au README).
-Au rebase, #8 a **abandonné entièrement sa version** du bloc : elle ne touche
-plus `backend/`, et l'exemple à un seul hôte reste celui de #10.
+Plus rien en attente d'audit à l'ouverture du lot 2 : le recouvrement de #8 et
+#10 sur `backend/app/config.py` a été résolu au rebase — #8 avait abandonné
+entièrement sa version du bloc au profit de celle de #10.
 
 ## Fait
 
@@ -157,16 +159,63 @@ Deux constats remontés par CC2, sans effet sur le métier ni sur un montant dor
   pas, **sans message d'erreur**. Un exemple qui modèle la mauvaise pratique
   finit recopié.
 
+## Lot 2a — le socle : modèle, migrations, session
+
+- **Mono-tenant, et ça se voit dans le schéma** : trois tables (`utilisateur`,
+  `session_utilisateur`, `parametres_couts`), **aucune colonne de portée**,
+  aucun scope à vérifier. Toute une famille de bugs de fuite entre clients
+  disparaît avec la colonne qui les portait.
+- **La session est une TABLE, pas un jeton signé.** Le contrat impose la
+  révocation côté serveur, et **un jeton signé ne se révoque pas**. Le jeton
+  n'est jamais stocké en clair : la base ne garde qu'une empreinte SHA-256.
+- **Zéro dépendance ajoutée** : hachage PBKDF2-HMAC-SHA256 de la bibliothèque
+  standard. Ces modules partent chez le client dans un **Python embarqué**, où
+  seuls des wheels binaires entrent — une bibliothèque qui compile à
+  l'installation bloquerait une imprimerie un dimanche soir.
+- **`reinitialiser_admin.py` fait enfin ce qu'il promet**, et son test provisoire
+  a été remplacé par un test de comportement réel — pas supprimé. Il **révoque
+  toutes les sessions ouvertes** : changer un mot de passe sans fermer les portes
+  déjà ouvertes ne protège de rien.
+- **L'installation part à zéro tarif.** Les neuf paramètres de coûts sont NULL ;
+  seule la marge est posée, parce que c'est une décision **commerciale** et non
+  un tarif. `calibration_faite` vaut donc faux juste après l'installation.
+
+### Deux défauts du squelette trouvés en chemin
+
+- **Le gabarit de migration importait `sqlmodel`**, une dépendance absente du
+  projet : *toute* migration autogénérée était inimportable. Corrigé à la
+  racine, dans `alembic/script.py.mako`.
+- **Les types SQL maison se rendaient en `app.models.types_sql.DecimalTexte`**
+  dans les migrations : une migration déjà appliquée chez un client se serait
+  mise à dépendre d'un module qu'on est libre de renommer. Un `render_item`
+  dans `alembic/env.py` les rend désormais en `sa.String` — même DDL, aucune
+  dépendance au code de l'application.
+
+### Pourquoi un type SQL maison
+
+SQLite ne connaît que INTEGER, REAL et TEXT : le `Numeric` de SQLAlchemy y passe
+par un **flottant**. Sur une application de devis dont les montants dorés
+tombent au centime, ce n'est pas négociable. `DecimalTexte` stocke la valeur
+telle qu'elle a été calculée. Limite assumée et écrite : **aucun tri SQL** sur
+ces colonnes, il serait lexicographique.
+
 ## Prochaine étape
 
-**Lot 2 — données et API.** Modèle mono-tenant, migrations Alembic, endpoints du
-contrat, session sur le patron de livraison. Le contrat v1 est **déjà annoncé** :
-il reste à livrer le backend, puis à mettre à jour la table d'état de livraison
-**dans la PR qui livre**.
+**Lot 2b — référentiels et paramètres.** Machines, cylindres, matières, outils,
+clients, options, barèmes, et les paramètres de coûts. ⚠️ Le contrat ne donne
+aujourd'hui que les **champs structurants** de chaque ressource, pas le JSON
+exact : c'est un **changement de contrat**, donc **annoncé à CC2 avant
+écriture**, dans une PR de documentation séparée. Un code d'erreur manquera
+sans doute aussi — supprimer une machine utilisée par un devis n'a pas de code
+aujourd'hui.
+
+Puis **lot 2c — optimisation, chiffrage, devis**, où le moteur du lot 1 est
+enfin branché sur une API.
 
 Reste aussi au moteur : l'**optimiseur** qui choisit entre configurations. Il a
 besoin des barèmes, donc du lot 2.
 
-Avant d'ouvrir le lot 2 : **#8 doit être validée par l'audit et mergée.** Elle
-seule porte encore de quoi démarrer le front sur un poste neuf ; la laisser
-ouverte fait diverger l'état réel de ce document de ce qu'un `git pull` donne.
+**Ce que CC2 peut débloquer maintenant** : l'écran d'installation, la connexion,
+la redirection au 401 et l'aiguillage sur `installation_faite` /
+`calibration_faite`. Ils étaient volontairement non figés au lot 3 — le backend
+est passé devant, ils peuvent l'être.
