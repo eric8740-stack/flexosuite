@@ -202,12 +202,11 @@ ces colonnes, il serait lexicographique.
 ## Prochaine étape
 
 **Lot 2b — référentiels et paramètres.** Machines, cylindres, matières, outils,
-clients, options, barèmes, et les paramètres de coûts. ⚠️ Le contrat ne donne
-aujourd'hui que les **champs structurants** de chaque ressource, pas le JSON
-exact : c'est un **changement de contrat**, donc **annoncé à CC2 avant
-écriture**, dans une PR de documentation séparée. Un code d'erreur manquera
-sans doute aussi — supprimer une machine utilisée par un devis n'a pas de code
-aujourd'hui.
+clients, options, barèmes, et les paramètres de coûts. **Le contrat est déjà
+annoncé en v1.2** — sections 5 et 6 écrites champ par champ, deux codes
+d'erreur ajoutés (`reference_utilisee`, `deja_existant`), enveloppe de liste
+uniforme. Rien n'en est implémenté : l'annonce précède l'écriture, comme pour
+la v1.
 
 Puis **lot 2c — optimisation, chiffrage, devis**, où le moteur du lot 1 est
 enfin branché sur une API.
