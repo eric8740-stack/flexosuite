@@ -34,6 +34,14 @@ set "FLEXO_STATIC_DIR=%APP_DIR%\web"
 set "PY=%APP_DIR%\python\python.exe"
 set "PYTHONDONTWRITEBYTECODE=1"
 
+rem --- Chemin d'import : NE PAS poser PYTHONPATH ici, ce serait sans effet.
+rem     Un Python EMBEDDABLE ignore PYTHONPATH des qu'un fichier ._pth existe
+rem     (verifie le 20/08/2026 : sys.path n'en gardait aucune trace). Le dossier
+rem     backend est donc declare dans le ._pth par build-package.ps1.
+rem     Sans cela, "python -m scripts.xxx" echoue sur un ModuleNotFound alors
+rem     que le module est bien livre -- alembic et uvicorn s'en sortaient chacun
+rem     par leur propre mecanisme, ce qui masquait le defaut.
+
 rem --- URL SQLite (chemin absolu Windows -> slashes pour SQLAlchemy)
 set "DB_FILE=%DATA_DIR%\prod.db"
 set "DB_SLASH=%DB_FILE:\=/%"

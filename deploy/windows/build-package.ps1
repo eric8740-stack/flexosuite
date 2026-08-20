@@ -50,9 +50,20 @@ if (-not (Test-Path $ZipPy)) {
 }
 $DirPy = Join-Path $Staging "python"
 Expand-Archive -Path $ZipPy -DestinationPath $DirPy -Force
-# Activer site-packages : decommenter "#import site" dans pythonXY._pth
+# Deux reglages dans pythonXY._pth, et le second n'est pas optionnel :
+#
+#   1. decommenter "import site" -> active site-packages (les dependances) ;
+#   2. ajouter le dossier backend -> rend NOS modules importables.
+#
+# Le point 2 ne peut PAS se faire par PYTHONPATH : un Python embeddable IGNORE
+# cette variable des qu'un fichier ._pth existe (verifie le 20/08/2026 :
+# sys.path n'en contenait aucune trace). Les chemins du ._pth sont relatifs au
+# dossier de python.exe, d'ou la ligne ajoutee ci-dessous.
+$LigneBackend = '..' + [char]92 + 'backend'
 Get-ChildItem "$DirPy\python*._pth" | ForEach-Object {
-    (Get-Content $_.FullName) -replace '^#\s*import site', 'import site' | Set-Content $_.FullName
+    $lignes = @((Get-Content $_.FullName) -replace '^#\s*import site', 'import site')
+    if ($lignes -notcontains $LigneBackend) { $lignes += $LigneBackend }
+    $lignes | Set-Content $_.FullName -Encoding ascii
 }
 $Py = Join-Path $DirPy "python.exe"
 Ok "Python $PythonVersion pret"
@@ -84,13 +95,13 @@ if ($LASTEXITCODE -ne 0) { throw "pip install des dependances en echec." }
 Get-ChildItem -Path $DirPy -Recurse -Directory -Filter "__pycache__" | Remove-Item -Recurse -Force
 Ok "Dependances runtime installees, sans bytecode"
 
-# --- 4. Verification des imports natifs -------------------------------------
+# --- 4. Verification des imports --------------------------------------------
 Etape "4/7 - Verification des imports"
 # Un wheel manquant ne se voit qu'a l'execution, chez le client, hors ligne.
 # On l'attrape ici, pas la-bas.
-& $Py -c "import fastapi, uvicorn, sqlalchemy, alembic, pydantic; print('imports OK')"
-if ($LASTEXITCODE -ne 0) { throw "un module ne s'importe pas dans le Python embarque." }
-Ok "Tous les modules s'importent"
+& $Py -c "import fastapi, uvicorn, sqlalchemy, alembic, pydantic; print('dependances OK')"
+if ($LASTEXITCODE -ne 0) { throw "une dependance ne s'importe pas dans le Python embarque." }
+Ok "Dependances : toutes importables"
 
 # --- 5. Front : export statique ---------------------------------------------
 Etape "5/7 - Front (export statique)"
@@ -138,6 +149,24 @@ $scripts = @(
 Copy-Item -Force $scripts $Staging
 "$Version" | Set-Content (Join-Path $Staging "VERSION.txt") -Encoding ascii
 Ok "Backend + scripts copies"
+
+# --- 6 bis. Nos propres modules s'importent-ils ? ---------------------------
+# Verifier les dependances tierces ne suffisait PAS : le 20/08/2026, le script
+# de reinitialisation du mot de passe echouait sur un ModuleNotFound alors que
+# le module etait bien livre. Le Python EMBARQUE n'ajoute pas le dossier
+# courant a sys.path (son ._pth ne contient que le dossier de python.exe) ;
+# alembic et uvicorn s'en sortaient chacun par leur propre mecanisme, et
+# masquaient le probleme. Ce controle rejoue exactement ce que font les .bat.
+$BackendStage = Join-Path $Staging "backend"
+# Pas de PYTHONPATH ici : il serait ignore. C'est le ._pth qui porte le chemin.
+Push-Location $BackendStage
+& $Py -c "import app.main, scripts.reinitialiser_admin; print('modules du projet OK')"
+$rcImports = $LASTEXITCODE
+Pop-Location
+if ($rcImports -ne 0) {
+    throw "un module DU PROJET ne s'importe pas dans le Python embarque (voir PYTHONPATH dans _env.bat)."
+}
+Ok "Modules du projet : importables comme le feront les scripts"
 
 # --- 7. Controle des chemins, puis archive ----------------------------------
 Etape "7/7 - Controle des chemins et archive"
