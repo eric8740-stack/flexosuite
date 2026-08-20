@@ -27,8 +27,8 @@
   - passés dans l'ancien moteur en local, avec la **structure** des payloads de
     référence ;
   - **cinq montants dorés** : deux mono-lot (1 777,00 € avec l'atelier rond,
-    1 587,66 € avec l'atelier non rond) et trois multi-lots (775,74 · 1 301,48 ·
-    1 551,48) qui verrouillent la règle du calage ;
+    1 587,66 € avec l'atelier non rond) et trois multi-lots (585,36 · 920,72 ·
+    1 170,72) qui verrouillent la règle du calage ;
   - la chaîne de pose en 7 étapes, les 8 sens, le « format approchant », la
     structure des 4 barèmes, la règle silhouette et le modèle de données.
 - **`tests/test_confidentialite_livraison.py`** — vert. Il vérifie **ce qu'on

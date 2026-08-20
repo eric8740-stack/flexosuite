@@ -690,23 +690,70 @@ pose et l'agrégation des lots.
 
 | Cas | Scénario | Prix de vente HT |
 | --- | --- | ---: |
-| **M1** | un seul lot | **775,74 €** *(coût de revient 620,59)* |
-| **M2** | deux lots, **même montage** (`changement_outil_cliche` faux) | **1 301,48 €** |
-| **M3** | deux lots, lot 2 avec **changement d'outil** | **1 551,48 €** |
+| **M1** | un seul lot | **585,36 €** *(coût de revient 468,29)* |
+| **M2** | deux lots, **même montage** (`changement_outil_cliche` faux) | **920,72 €** |
+| **M3** | deux lots, lot 2 avec **changement d'outil** | **1 170,72 €** |
+
+> ### ⚠️ Erratum du 20/08/2026 — ces montants ont été régénérés
+>
+> Une première série annonçait 775,74 / 1 301,48 / 1 551,48. **Elle était
+> invalide** : le moteur multi-lots lit le **complexe**, pas la matière, et
+> seule la matière avait été portée au jeu doré. Les montants sortaient donc
+> d'une matière **absente de ce document** — ils n'étaient pas reproductibles
+> depuis la spec, ce qui vide de sens la porte G0.
+>
+> Trouvé en dumpant la décomposition complète avant d'écrire le moteur, plutôt
+> qu'en codant contre un total. **Ce n'est pas une re-baseline d'un montant
+> validé** : c'est la correction d'un montant qui n'aurait jamais dû être figé.
+> Les trois invariants ci-dessous tenaient déjà avant, et tiennent encore — ils
+> sont vrais quelle que soit la matière, ce qui explique qu'ils n'aient rien
+> signalé.
 
 ### Les trois invariants que ces montants verrouillent
 
 1. **`M3 − M2 = 250,00 €`** — exactement **un calage × (1 + marge)** :
    200,00 × 1,25. Le delta ne dépend d'aucun autre poste.
-2. **`M2 = M1 + (M1 − 250,00)`** = 775,74 + 525,74. Le second lot du même montage
-   coûte le premier **moins son calage** : la déduplication est bien du calage, et
-   de rien d'autre.
-3. **`M3 = 2 × M1`** = 1 551,48. Deux lots à montage distinct valent exactement
+2. **`M2 = M1 + (M1 − 250,00)`** = 585,36 + 335,36. Le second lot du même
+   montage coûte le premier **moins son calage**.
+3. **`M3 = 2 × M1`** = 1 170,72. Deux lots à montage distinct valent exactement
    deux fois le lot seul.
 
 Ces trois égalités se vérifient **sans recalculer un seul poste**. Elles doivent
 être écrites en test à côté des montants : un moteur qui tombe sur les trois
 nombres mais viole une égalité a un problème ailleurs.
+
+### La décomposition de M1, poste par poste
+
+C'est elle qui rend le cas reproductible. **On ne code pas contre un total.**
+
+| Étape | Valeur | D'où elle vient |
+| --- | ---: | --- |
+| poses totales | 6 | 3 en laize × 2 en développé |
+| nombre de tours | 1 667 | `plafond(10 000 / 6)` — on finit le tour entamé |
+| métrage brut | 500,10 m | 1 667 × 300 / 1000 |
+| **`ml_total`** | **501 m** | ⚠️ **arrondi au mètre SUPÉRIEUR** — voir ci-dessous |
+| intervalle laize | 5,00 mm | `min((320 − 3×100)/2 , 5)` — le plafond mord |
+| laize plaque | 310,00 mm | 3 × 100 + 2 × 5 |
+| **laize papier** | **320,00 mm** | brut arrondi au palier, **plafonné à la laize utile** |
+| surface support | 160,32 m² | 320/1000 × 501 |
+| **P1 Matière** | **80,16** | 160,32 × 100/1000 = 16,032 kg × 5,00 |
+| **P2 Encres** | **0,00** | aucune couleur — volontaire, rend le cas déterministe |
+| **P3 Outillage** | **0,00** | 0 couleur × 40,00 · outil existant → 0 |
+| **P4 Calage** | **200,00** | forfait × 1 calage |
+| **P5 Roulage** | **30,06** | 501/5 000 = 0,1002 h × 300,00 |
+| **P6 Finitions** | **32,06** | 160,32 × 0,2000 = 32,064, arrondi |
+| **P7 MO** | **126,01** | (2,00 + 0,1002) = 2,1002 h × 60,00 = 126,012 |
+| **Coût de revient** | **468,29** | somme, arrondie |
+| **Prix de vente** | **585,36** | 468,29 × 1,25 = 585,3625, arrondi |
+
+> ⚠️ **`ml_total` est un ENTIER de mètres, arrondi au supérieur.** 500,10 devient
+> 501. Ce n'est pas le même arrondi que « on finit le tour entamé » — celui-là a
+> déjà eu lieu, sur le nombre de tours. Il y a donc **deux montées successives**
+> dans la chaîne, et les oublier fait manquer M1 de plusieurs euros : le métrage
+> alimente P1, P5, P6 et P7 à la fois.
+
+> **`prix_au_mille` n'est pas figé** à ce stade : sa base de comptage n'a pas été
+> vérifiée. À constater avant de l'inscrire dans un test.
 
 ### La chaîne de laize, sur ce cas précis
 
@@ -727,13 +774,13 @@ défendre. **Le détail par lot fait donc partie du jeu doré**, et se fige en t
 
 | Cas | Lot | Prix de vente HT | Coût de revient | Calage dédupliqué |
 | --- | ---: | ---: | ---: | ---: |
-| **M1** | 1 | 775,74 | 620,59 | 0,00 |
-| **M2** | 1 | 775,74 | 620,59 | 0,00 |
-| **M2** | 2 | **525,74** | **420,59** | **200,00** |
-| **M3** | 1 | 775,74 | 620,59 | 0,00 |
-| **M3** | 2 | 775,74 | 620,59 | 0,00 |
+| **M1** | 1 | 585,36 | 468,29 | 0,00 |
+| **M2** | 1 | 585,36 | 468,29 | 0,00 |
+| **M2** | 2 | **335,36** | **268,29** | **200,00** |
+| **M3** | 1 | 585,36 | 468,29 | 0,00 |
+| **M3** | 2 | 585,36 | 468,29 | 0,00 |
 
-**Le détail somme au total** : 775,74 + 525,74 = 1 301,48. C'est vrai **par
+**Le détail somme au total** : 585,36 + 335,36 = 920,72. C'est vrai **par
 construction** — le total est la somme des prix de lot déjà arrondis (§ 3 bis),
 et non un calcul parallèle. Cette propriété est elle-même à écrire en test :
 `Σ(prix de lot) == total`, sur les trois cas.
@@ -749,6 +796,9 @@ commercial, pas seulement une ligne de calcul.
 > brut du lot conservé pour audit, et non le prix du lot. L'ancien moteur
 > déduplique déjà correctement. Il n'y a **aucun écart volontaire** à protéger —
 > seulement des valeurs à reproduire.
+>
+> Le champ d'audit reste utile : il porte le calcul du lot **comme s'il était
+> seul**. Le confondre avec le prix du lot est le piège, et il est facile.
 
 ## 7. État de la porte G0
 
