@@ -1,0 +1,16 @@
+# Backend FlexoSuite - FastAPI + SQLAlchemy + Alembic (SQLite)
+#
+# Ces dependances partent chez le client, dans un Python embarque : wheels
+# BINAIRES uniquement, aucune compilation sur son poste.
+fastapi==0.138.1
+uvicorn[standard]==0.49.0
+sqlalchemy==2.0.36
+alembic==1.18.5
+pydantic==2.12.3
+python-multipart==0.0.32
+
+# Tests
+# ^ build-package.ps1 tronque ce fichier a ce marqueur : rien de ce qui suit
+#   n'est embarque dans le package client. Ne pas renommer la ligne.
+pytest==8.3.4
+httpx==0.28.1
