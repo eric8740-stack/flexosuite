@@ -55,7 +55,11 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          # Node 24, la version du poste de developpement. Pas 20 : `jsdom`
+          # (l'environnement des tests Vitest) declare `^22.22.2 || ^24.15.0`
+          # et echoue sur Node 20 par un `markAsUncloneable is not a function`
+          # venu d'undici — un message qui ne dit rien du vrai probleme.
+          node-version: "24"
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
