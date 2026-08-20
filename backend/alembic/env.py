@@ -1,4 +1,4 @@
-"""Environnement Alembic - l'URL vient TOUJOURS de l'application.
+r"""Environnement Alembic - l'URL vient TOUJOURS de l'application.
 
 Le fichier .ini ne porte aucune URL : chez le client, la base vit dans
 %ProgramData%\FlexoSuite et le chemin est pose par `_env.bat`.
