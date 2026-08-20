@@ -17,19 +17,19 @@
 - [x] Garde-fou de confidentialité vert (`tests/test_confidentialite_livraison.py`)
 - [x] **La chaîne de pose** (format + cylindre → poses → laizes → métrage)
 - [x] Règle du bord et plafonnement à la laize utile
-- [ ] Les 8 sens d'enroulement
-- [ ] Règle silhouette
-- [ ] Logique du « format approchant »
-- [ ] **Structure** des 4 barèmes — la forme des courbes, jamais des valeurs
+- [x] Les 8 sens d'enroulement
+- [x] Règle silhouette
+- [x] Logique du « format approchant »
+- [x] **Structure** des 4 barèmes — la forme des courbes, jamais des valeurs
       réglées sur un parc existant ; livrés en mode neutre puis calibrés
-- [ ] Les 19 développés standard, re-sourcés depuis les catalogues publics
-- [ ] Modèle de données du noyau devis, sans multi-tenant
-- [ ] Montants dorés des 2 cas de référence restants (dépendent de la pose)
+- [ ] Développés standard de cylindres — catalogue à re-sourcer (non bloquant)
+- [x] Modèle de données du noyau devis, sans multi-tenant
+- [x] Montants dorés multi-lots + les 3 invariants de calage
 
-> **🔴 Porte G0** — la spec suffit-elle à écrire le moteur **sans rouvrir
-> l'ancien dépôt**, et **sans un seul chiffre d'atelier réel** dedans ?
-> **Non à ce jour** : le 1er cas de référence oui, les deux autres non — il leur
-> manque la chaîne de pose.
+> **🟢 Porte G0 — FRANCHIE.** La spec suffit à écrire le moteur sans rouvrir
+> l'ancien dépôt et sans un chiffre d'atelier réel. Reste hors chemin critique :
+> un catalogue de développés à re-sourcer, et les courbes de barèmes qui ne se
+> reprennent pas par construction.
 
 ## Lot 0b — Dépôt et squelette
 

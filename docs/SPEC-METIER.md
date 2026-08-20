@@ -454,70 +454,263 @@ de conduite reprises telles quelles :
   moins de candidats que de places, on en retourne moins.
 - Les configurations en doublon sont fusionnées avant classement.
 
-## 6. Cas de référence P0b et D1 — structure figée, montants à produire
+## 5 quater. Les 8 sens d'enroulement
 
-**P0b — chemin multi-lots, un seul lot.** Structure :
+Convention flexographique officielle. Trois vues, et une seule est critique :
 
-```json
-{
-  "payload_input": {
-    "format_etiquette_largeur_mm": 100,
-    "format_etiquette_hauteur_mm": 80,
-    "mode_calcul": "manuel"
-  },
-  "quantite_totale": 10000,
-  "lots": [{ "nb_poses_dev": 2, "nb_poses_laize": 3,
-             "sens_enroulement": 1, "quantite": 10000 }]
-}
+- **Vue A** — la **planche presse** (verticale, l'avance pointe vers le bas).
+- **Vue B** — le rouleau en volume : seule vue où se voit la **face imprimée**
+  (dedans / dehors).
+- **Vue C** — la **bobine fille déroulée chez le client** (horizontale,
+  défilement vers la droite).
+
+**Les paires (1,5) (2,6) (3,7) (4,8) partagent exactement les mêmes rotations en
+vues A et C.** Leur seule différence est la face imprimée, visible uniquement en
+vue B. C'est le piège classique : un sens « extérieur » et son « intérieur »
+correspondant sont indiscernables sur la planche.
+
+| Sens | Libellé officiel | Rotation vue A | Rotation vue C |
+| ---: | --- | ---: | ---: |
+| 1 | 0° Extérieur droite avant | 90° | 0° |
+| 2 | 180° Extérieur gauche avant | 270° | 180° |
+| 3 | 270° Extérieur pied avant | 0° | 270° |
+| 4 | 90° Extérieur tête avant | 180° | 90° |
+| 5 | 0° Intérieur droite avant | 90° | 0° |
+| 6 | 180° Intérieur gauche avant | 270° | 180° |
+| 7 | 270° Intérieur pied avant | 0° | 270° |
+| 8 | 90° Intérieur tête avant | 180° | 90° |
+
+Rotations horaires, en degrés : 0 = tête en haut, 90 = tête à droite,
+180 = tête en bas, 270 = tête à gauche.
+
+> ⚠️ **Pourquoi la vue A ne souffre aucune approximation** : c'est elle que lit le
+> poseur de clichés pour orienter le cliché sur la presse. Fausse → cliché posé à
+> l'envers → **tirage entier à jeter**. Un sens hors de 1–8 lève une erreur ; il
+> n'y a pas de valeur par défaut raisonnable.
+
+## 5 quinquies. Le « format approchant » — le cœur de l'argument de vente
+
+Il s'agit de trouver, dans le parc **existant** de l'imprimeur, un outil
+quasi compatible plutôt que d'en fabriquer un neuf.
+
+### La formule
+
+Un cylindre magnétique se décrit par son nombre de **dents** `Z`.
+
+```
+DENT = 3,175 mm                      (1/8 de pouce — convention industrielle)
+pas          = ( Z × DENT ) / nb_etiquettes_par_tour
+intervalle   = pas − hauteur_etiquette
 ```
 
-Dépendances de fixture à figer explicitement : presse de laize utile **320 mm** ·
-**aucune couleur** dans le payload → **P2 = 0 €**, volontairement, pour rendre le
-cas déterministe · pas d'override de marge.
+Le moteur balaie les couples `(Z, nb_etiquettes_par_tour)` et retient ceux qui
+satisfont **trois contraintes simultanées** :
 
-**Le plafond de laize mord ici, et c'est le cœur du cas** : plaque = **310 mm**,
-papier brut arrondi = **330 mm**, plafonné à la laize utile = **320 mm**. Le détail
-du calcul est au § 5 ter.
+1. **Hauteur** : l'intervalle reste entre un minimum et un maximum métier — trop
+   faible, le squelette casse ; trop grand, c'est de la matière perdue.
+2. **Effet banane** : `Z ≥ développé minimum` pour la largeur de plaque
+   considérée (§ 5 sexies).
+3. **Laize machine** : `largeur_plaque ≤ laize_max − 2 × marge de sécurité`.
 
-**D1 — le calage suit le montage.** Même fixture, **deux lots identiques** :
+### La stratégie de sélection, qui est le vrai savoir-faire
 
-| Scénario | `changement_outil_cliche` du lot 2 | Calages attendus |
+- **Un seul candidat par `Z`** — celui qui donne le meilleur intervalle pour ce
+  cylindre **physique**. Proposer deux configurations du même cylindre n'aide pas
+  le deviseur : il n'en a qu'un.
+- **Tri par intervalle croissant** : le plus serré des intervalles acceptables
+  donne le meilleur **prix au mille**.
+- **Top 3**, et **moins de 3 s'il y a moins de candidats viables**. On ne dégrade
+  **jamais** une contrainte pour remplir la liste.
+- Quand **aucun** cylindre du parc ne convient, on propose explicitement l'option
+  « fabriquer un outil neuf », chiffrée — c'est l'alternative, pas un échec.
+
+Les bornes (intervalle mini et maxi, marge de sécurité en laize, plages de `Z` et
+de nombre d'étiquettes par tour) sont des **paramètres**, à re-sourcer depuis les
+catalogues publics des fabricants de cylindres et à confirmer à la calibration.
+
+## 5 sexies. La structure des quatre barèmes
+
+Les barèmes sont **réglés sur un parc de presses**. Leurs **courbes** ne se
+livrent donc pas : on livre la **structure** et un **mode neutre**, puis on
+calibre chez l'imprimeur.
+
+Un barème est une entrée typée portant : un **type**, un nom, une liste
+optionnelle de **machines auxquelles il s'applique**, ses **données** (JSON), des
+notes, et un drapeau d'activité.
+
+| Barème | Nature | Structure des données |
+| --- | --- | --- |
+| **Effet banane** | **Filtre dur** — appliqué **en premier** | Paliers triés par `largeur_max_mm` → `developpe_mini_mm`. Un cylindre exclu l'est définitivement. |
+| **Échenillage** | **Score + coefficients** — ne filtre jamais | Paliers triés par `intervalle_max_mm` → `qualite`, `coef_vitesse`, `coef_gache`, `score`. On prend le **premier** palier dont le maximum couvre l'intervalle. |
+| **Confort de roulage** | Coefficients | Structure différente : un sous-barème par **rayon d'angle** (`rayon_max_mm` → coefficient), plus un coefficient **forme courbe** et un coefficient **quinconce**. |
+| **Compensation laize/dev** | **Bonus** | Paliers par intervalle en développé → intervalle en laize souhaitable (valeur fixe, ou **pourcentage du développé** au-delà d'un seuil) et coefficient de vitesse amélioré s'il est atteint. |
+
+### Ce que chaque barème encode, en clair
+
+- **Effet banane** : plus la plaque est large, plus le cylindre doit avoir un
+  développé important, sinon la plaque se courbe en arc sous la pression et
+  dégrade impression et découpe. **La courbe est empirique et non linéaire** —
+  elle comporte un saut à un seuil physique de rigidité. Elle ne s'extrapole pas
+  par formule : elle se mesure.
+- **Échenillage** — le squelette de matière qui reste entre les étiquettes après
+  découpe. Intervalle trop faible → squelette fragile → casse à grande vitesse,
+  donc ralentissement. Intervalle modéré → optimal. Intervalle large → squelette
+  robuste mais gâche inutile, **et impact vitesse paradoxal** : la machine gère
+  plus de matière entre poses.
+- **Confort de roulage** — un outil en rotation subit la physique d'une roue qui
+  aborde un trottoir : plus les angles d'attaque sont vifs, plus chaque tour
+  génère un choc qui force à ralentir et use l'outil. Deux facteurs indépendants
+  qui se **cumulent multiplicativement** : le rayon des angles (une forme ronde ou
+  ovale a son propre coefficient, indépendant du rayon) et la disposition —
+  alignée ou en quinconce.
+  **Le quinconce est invisible pour le client final** : l'imprimeur peut
+  l'activer librement, sans accord.
+- **Compensation laize/dev** — quand un intervalle en développé trop grand est
+  subi (cylindre non idéal), on **élargit l'intervalle en laize** pour consolider
+  le squelette par de la matière transverse. On perd potentiellement une pose en
+  laize et on récupère de la vitesse : c'est un arbitrage, tranché par
+  l'orchestrateur.
+
+### Mode neutre — ce qui est livré
+
+Un barème vide rend un **palier neutre** : coefficients à **1,0**, qualité
+« inconnu », score 0. **Aucun cylindre n'est alors favorisé arbitrairement.**
+C'est exactement le comportement voulu à l'installation : l'application calcule,
+sans prétendre connaître un parc qu'elle n'a pas encore vu.
+
+### Une cinquième règle, qui n'est pas un barème
+
+**La contrainte client** : la machine de pose du client a sa propre exigence
+d'intervalle — sa cellule photoélectrique doit distinguer chaque étiquette. Si
+l'écart est trop faible, elle en confond deux et la pose rate.
+
+```
+intervalle_dev_min_appliqué = MAX( minimum imprimeur , minimum client )
+```
+
+Et quand c'est la contrainte **client** qui l'emporte, on le **dit** : le devis
+peut mentionner « intervalle requis par votre machine de pose », ce qui préempte
+la question « pourquoi n'avez-vous pas optimisé davantage ? ».
+
+## 5 septies. Le modèle de données du noyau devis
+
+Mono-tenant : **aucune colonne de portée**, aucun scope, aucun module activable.
+
+| Entité | Rôle | Champs structurants |
+| --- | --- | --- |
+| **Machine** | **Table unique**, source de vérité du parc | laize utile, laize maximale, **vitesse moyenne (seul driver de vitesse)**, durée de calage, nombre de groupes couleurs, modules spéciaux, diamètre maximal de bobine, temps de changement de bobine |
+| **Cylindre magnétique** | Le parc d'outils | développé, repère machine, **nombre de porte-clichés disponibles par presse**, date d'inventaire, actif |
+| **Outil de découpe** | Formes existantes | format (largeur × hauteur), nombre de poses en laize et en développé, **forme spéciale** (drapeau) |
+| **Matière** | Support | grammage, prix au m², **épaisseur réelle** (jamais un défaut qui ignore la matière) |
+| **Option de fabrication** | Catalogue des options | ressources requises (groupes couleurs, modules) → **filtre dur** · impacts production (**coefficients de vitesse et de gâche**, temps de calage ajouté) → cumulés **multiplicativement** · tarification (forfait, au m², ou au mille) · drapeau **silhouette automatique** |
+| **Paramètres de coûts** | Ce que la calibration produit | cf. § 2 — **vide à l'installation**, sauf la marge |
+| **Barème** | Les 4 courbes | type, machines concernées, données JSON, actif |
+| **Client** | | + sa **contrainte d'intervalle** de machine de pose |
+| **Devis** et **Lot de production** | | le lot porte : cylindre, machine, matière, poses en laize et en développé, sens d'enroulement, quantité, et **`changement_outil_cliche`** |
+
+### La règle silhouette
+
+Certaines options — microperforation, prédécoupe, pose mixte — portent un drapeau
+**silhouette automatique**. Il déclenche le calcul silhouette, qui **oriente la
+recherche de format** : dès que la forme n'est plus un simple rectangle à rayons
+standard, les contraintes d'outil et de confort de roulage changent de régime.
+
+## 6. Cas de référence multi-lots — et la règle du calage
+
+Ces trois cas passent par le **chemin multi-lots** (création de devis complète),
+pas par un appel direct au moteur de coûts. Ils vérifient donc aussi la chaîne de
+pose et l'agrégation des lots.
+
+**Fixture commune** — Atelier Démo A, plus :
+
+| Élément | Valeur dorée |
+| --- | --- |
+| Presse | `laize_utile` = **320 mm** · vitesse 5 000 m/h · calage 2,00 h |
+| Cylindre | développé = **300 mm** |
+| Matière | « Papier Démo 100 » — 100 g/m², 0,50 €/m² |
+| Étiquette | 100 × 80 mm |
+| Poses | 3 en laize × 2 en développé |
+| Quantité | 10 000 par lot |
+| Couleurs | **aucune** — volontairement : le poste Encres vaut 0 €, le cas reste déterministe |
+| Marge | celle des paramètres, sans surcharge |
+
+### Les trois montants dorés
+
+| Cas | Scénario | Prix de vente HT |
 | --- | --- | ---: |
-| D1-a | `False` | **1** (lot 2 dédupliqué) |
-| D1-b | `True` | **2** |
+| **M1** | un seul lot | **775,74 €** *(coût de revient 620,59)* |
+| **M2** | deux lots, **même montage** (`changement_outil_cliche` faux) | **1 301,48 €** |
+| **M3** | deux lots, lot 2 avec **changement d'outil** | **1 551,48 €** |
 
-Garde de cohérence à écrire en test : `D1-b − D1-a` doit valoir **exactement un
-calage × (1 + marge)**, et **D1-a doit contenir le montant de P0b** (le lot 1 seul
-est le scénario P0b).
+### Les trois invariants que ces montants verrouillent
 
-⚠️ **Les montants dorés de P0b et D1 ne sont pas encore produits** : ils passent par
-la chaîne de pose, qui n'est pas extraite (§ 7). La règle exacte du bord et du
-plafonnement est ici telle que l'ancien code la décrit, **pas telle qu'elle a été
-lue**.
+1. **`M3 − M2 = 250,00 €`** — exactement **un calage × (1 + marge)** :
+   200,00 × 1,25. Le delta ne dépend d'aucun autre poste.
+2. **`M2 = M1 + (M1 − 250,00)`** = 775,74 + 525,74. Le second lot du même montage
+   coûte le premier **moins son calage** : la déduplication est bien du calage, et
+   de rien d'autre.
+3. **`M3 = 2 × M1`** = 1 551,48. Deux lots à montage distinct valent exactement
+   deux fois le lot seul.
 
-## 7. Ce qui n'est PAS encore extrait — la porte G0 reste fermée
+Ces trois égalités se vérifient **sans recalculer un seul poste**. Elles doivent
+être écrites en test à côté des montants : un moteur qui tombe sur les trois
+nombres mais viole une égalité a un problème ailleurs.
 
-Tant que cette liste n'est pas vide, on **n'écrit pas de moteur**.
+### La chaîne de laize, sur ce cas précis
 
-- [x] **La chaîne de pose** — § 5 ter, des 7 étapes du format au métrage.
-- [x] **La règle du bord** et le **plafonnement à la laize utile** — § 5 ter
-      étapes 3 et 4. Le 310 vient des **(N−1) intervalles internes** plafonnés à
-      5 mm, pas des bords : c'est l'étape 4 qui traite les bords.
-- [ ] Les **montants dorés** de P0b et D1 — la chaîne est connue, il reste à la
-      dérouler avec le jeu doré et un catalogue de cylindres re-sourcé.
-- [ ] **Les 8 sens d'enroulement** — table de correspondance.
-- [ ] **La règle silhouette** : forme ≠ rectangle, rayon hors valeurs standard, ou
-      prédécoupe / microperfo / pose mixte → oriente la recherche de format.
-- [ ] **Le « format approchant »** — l'argument de vente central, donc la règle la
-      plus importante du produit. Sa logique de score reste à extraire.
-- [ ] **La structure des 4 barèmes** — échenillage, effet banane, confort de
-      roulage, compensation laize/dev. **La forme des courbes, jamais les valeurs**
-      d'un parc existant. Livrés en **mode neutre** (coefficient 1,0 = sans effet),
-      puis ajustés par calibration.
-- [ ] **Les 19 développés standard** (de 72 à 144 mm, pas de 3,175 mm) —
-      re-sourcés depuis les **catalogues publics** de fabricants de cylindres.
-- [ ] **Le modèle de données du noyau devis**, sans multi-tenant : machines,
-      matières, outils, cylindres, clients, devis et lots, paramètres.
+```
+plaque = 3 × 100 + (3 − 1) × intervalle_laize        intervalle plafonné à 5 mm
+       = 310 mm
+papier = arrondi_palier_sup( 310 + 2 × bord )  puis  min( … , laize_utile 320 )
+```
+
+**Le plafond mord** : le brut arrondi dépasse la laize utile, la presse rogne le
+bord, et c'est **320 mm** qui est facturé. C'est le cœur de ce cas de référence —
+le détail des étapes est au § 5 ter.
+
+### ⚠️ Une incohérence d'affichage à ne pas reproduire
+
+Dans l'ancien moteur, le **détail par lot** affiche `775,74 €` pour **chacun** des
+deux lots du cas M2 — alors que le total est `1 301,48 €`. Le détail ne somme donc
+pas au total : la déduplication du calage n'est appliquée qu'à l'agrégat.
+
+Un deviseur qui lit le détail ne peut pas réconcilier son devis. **Dans la
+réécriture, le détail par lot doit porter le calage dédupliqué** — c'est-à-dire
+afficher `775,74` puis `525,74`. Le total, lui, ne change pas.
+
+## 7. État de la porte G0
+
+**La question** : cette spec suffit-elle à écrire le moteur **sans rouvrir
+l'ancien dépôt**, et **sans un seul chiffre d'atelier réel** dedans ?
+
+### ✅ Ce qui est extrait
+
+- [x] Les **formules** des 7 postes, et **où chaque paramètre se lit** (§ 4)
+- [x] La **chaîne de pose** complète, en 7 étapes (§ 5 ter)
+- [x] La **règle du bord** et le **plafonnement** à la laize utile (§ 5 ter)
+- [x] Les **8 sens d'enroulement**, table complète (§ 5 quater)
+- [x] Le **« format approchant »** — formule, contraintes, stratégie (§ 5 quinquies)
+- [x] La **structure des 4 barèmes** et le mode neutre (§ 5 sexies)
+- [x] La **règle silhouette** et le **modèle de données** (§ 5 septies)
+- [x] **Cinq montants dorés** : deux mono-lot (§ 5, § 5 bis) et trois multi-lots
+      avec la règle du calage (§ 6)
+- [x] La **convention de marge** — marge sur coût, pas taux de marque (§ 3)
+- [x] L'**ordre des arrondis**, verrouillé par l'Atelier B (§ 5 bis)
+
+### Ce qui reste, et qui n'est pas un blocage
+
+- [ ] **Les développés standard de cylindres** (pas de 3,175 mm — 1/8 de pouce).
+      C'est un **catalogue à re-sourcer** depuis la documentation publique des
+      fabricants, pas une règle à extraire. Le moteur s'écrit sans, la calibration
+      les charge.
+- [ ] **Les courbes des 4 barèmes** : elles ne se reprennent pas, **par
+      construction**. On livre le mode neutre, et la calibration les fait produire
+      chez l'imprimeur.
+
+### Verdict
+
+**G0 est franchie.** Le moteur du lot 1 peut s'écrire à partir de ce document
+seul, en TDD, contre les cinq montants dorés et les trois invariants de calage.
 
 ## 8. Questions ouvertes pour Eric
 
