@@ -1,47 +1,47 @@
 # -*- coding: utf-8 -*-
-"""Le MODULE de reinitialisation : atteignable par `-m`, et bruyant en echec.
+"""Le script de secours du client — teste sur son COMPORTEMENT REEL.
 
-⚠️ CE QUE CE TEST NE PROUVE PAS. Il lance `sys.executable`, c'est-a-dire le
-Python de l'environnement de test — pas le Python EMBARQUE du package. Il ne
-dit donc rien du fichier `._pth`, ni du chemin d'import chez le client.
+Pourquoi ce script existe : le mot de passe n'est stocke que HACHE. Le jour ou
+un imprimeur le perd, `reinitialiser-mot-de-passe.bat` est son seul recours.
 
-**La preuve de packaging est ailleurs, et elle est correcte** :
+> Ce fichier a remplace, au lot 2, le test provisoire qui verifiait seulement
+> que le module echouait bruyamment tant que l'authentification n'existait pas.
+> Il verifie maintenant ce qui compte : le mot de passe est bien remplace,
+> l'ancien ne fonctionne plus, et **les sessions ouvertes sont revoquees**.
+
+⚠️ CE QUE CES TESTS NE PROUVENT PAS. Les cas par sous-processus lancent
+`sys.executable`, c'est-a-dire le Python de l'environnement de test — pas le
+Python EMBARQUE du package. Ils ne disent rien du fichier `._pth` ni du chemin
+d'import chez le client. **La preuve de packaging est ailleurs** :
 `deploy/windows/build-package.ps1` § 6 bis importe `app.main` et
-`scripts.reinitialiser_admin` avec le Python embarque, depuis le dossier
-backend assemble — exactement comme le feront les scripts double-clic.
-
-Ce test-ci verifie ce qui est de son ressort : que le module existe, qu'il est
-atteignable par `-m`, et qu'il echoue BRUYAMMENT tant qu'il n'est pas
-implemente — jamais en silence.
-
-Pourquoi un test pour un script qui ne fait rien : le mot de passe
-administrateur n'est stocke que HACHE. Le jour ou un imprimeur le perd, ce
-script est son seul recours. S'il sortait en code 0 sans rien faire, le client
-croirait son mot de passe reinitialise et resterait bloque — avec, en prime,
-l'idee que l'outil est cense marcher.
-
-Un echec bruyant est une promesse tenue : « ce n'est pas encore la ». Un succes
-silencieux est un mensonge.
-
-⚠️ Ce test change de nature au lot 2 : quand l'authentification arrive, il doit
-etre remplace par un test du comportement REEL (le mot de passe est bien
-remplace, et l'ancien ne fonctionne plus). Ne pas le supprimer sans ecrire son
-successeur.
+`scripts.reinitialiser_admin` avec le Python embarque, depuis le dossier backend
+assemble — exactement comme le feront les scripts double-clic.
 """
 import subprocess
 import sys
 from pathlib import Path
 
+from sqlalchemy import select
+
+from app.database import SessionLocale
+from app.models import SessionUtilisateur
+from scripts.reinitialiser_admin import main
+from tests.conftest import IDENTIFIANT, MOT_DE_PASSE
+
 RACINE_BACKEND = Path(__file__).resolve().parent.parent
+NOUVEAU = "nouveau-mot-de-passe"
 
 
-def _lancer_le_script() -> subprocess.CompletedProcess:
-    """Par `-m`, depuis le dossier backend — la forme qu'emploie le script
-    double-clic. Appeler `main()` en direct ne prouverait pas qu'il est
-    atteignable.
+def _saisie(*reponses: str):
+    """Remplace la saisie clavier. Le mot de passe n'est jamais un argument de
+    ligne de commande : une ligne de commande se retrouve dans l'historique."""
+    restant = list(reponses)
+    return lambda _invite: restant.pop(0)
 
-    ⚠️ `sys.executable` est le Python de l'environnement de TEST, pas celui du
-    package : voir l'avertissement en tete de module."""
+
+def _lancer_par_moins_m() -> subprocess.CompletedProcess:
+    """Par `-m`, depuis le dossier backend — la forme qu'emploie le .bat.
+    Appeler `main()` en direct ne prouverait pas qu'il est atteignable."""
     return subprocess.run(
         [sys.executable, "-m", "scripts.reinitialiser_admin"],
         cwd=RACINE_BACKEND,
@@ -49,39 +49,66 @@ def _lancer_le_script() -> subprocess.CompletedProcess:
         text=True,
         encoding="utf-8",
         errors="replace",
+        input="",
     )
 
 
-def test_le_module_est_atteignable_par_moins_m():
-    """Le module doit exister et s'invoquer par `-m` depuis le dossier backend :
-    c'est la forme qu'emploie le script double-clic.
+# --- Comportement reel ------------------------------------------------------
 
-    Ce que ce test N'ATTRAPE PAS : le defaut du 20/08/2026, ou le module etait
-    bien livre mais introuvable dans le Python EMBARQUE (son `._pth` n'exposait
-    pas le dossier backend). Ce cas-la se verifie a l'assemblage —
-    build-package.ps1 § 6 bis."""
-    r = _lancer_le_script()
-    assert "ModuleNotFoundError" not in r.stderr, (
-        "Le module n'est pas atteignable par `-m` depuis le dossier backend."
+
+def test_le_mot_de_passe_est_bien_remplace(client_installe):
+    assert main(lire=_saisie(NOUVEAU, NOUVEAU)) == 0
+
+    client_installe.cookies.clear()
+    ancien = client_installe.post(
+        "/api/auth/connexion",
+        json={"identifiant": IDENTIFIANT, "mot_de_passe": MOT_DE_PASSE},
     )
+    assert ancien.status_code == 401, "L'ancien mot de passe doit cesser de fonctionner."
 
-
-def test_il_echoue_avec_un_code_non_nul():
-    """Le script double-clic teste le code de retour : un 0 le ferait annoncer
-    une reussite a un technicien qui compte dessus."""
-    assert _lancer_le_script().returncode != 0
-
-
-def test_il_dit_pourquoi_et_sur_la_sortie_d_erreur():
-    r = _lancer_le_script()
-    assert r.stderr.strip(), "Un echec muet ne renseigne personne."
-    assert "lot 2" in r.stderr, (
-        "Le message doit dire QUAND ce sera disponible, pas seulement que ca "
-        "ne l'est pas."
+    nouveau = client_installe.post(
+        "/api/auth/connexion",
+        json={"identifiant": IDENTIFIANT, "mot_de_passe": NOUVEAU},
     )
+    assert nouveau.status_code == 200
 
 
-def test_il_n_ecrit_rien_sur_la_sortie_standard():
-    """Rien sur la sortie standard : pas de demi-message qui laisserait croire
-    qu'une partie du travail a ete faite."""
-    assert _lancer_le_script().stdout.strip() == ""
+def test_les_sessions_ouvertes_sont_revoquees(client_installe):
+    """Sans cela, le poste laisse ouvert dans l'atelier continuerait a
+    fonctionner : le mot de passe changerait sans rien fermer."""
+    assert client_installe.get("/api/auth/moi").status_code == 200
+
+    assert main(lire=_saisie(NOUVEAU, NOUVEAU)) == 0
+
+    assert client_installe.get("/api/auth/moi").status_code == 401
+    with SessionLocale() as db:
+        assert db.execute(select(SessionUtilisateur.revoquee_le)).scalar_one() is not None
+
+
+def test_deux_saisies_differentes_ne_changent_rien(client_installe):
+    assert main(lire=_saisie(NOUVEAU, "pas-la-meme-chose")) == 1
+    assert client_installe.get("/api/auth/moi").status_code == 200
+
+
+def test_un_mot_de_passe_trop_court_est_refuse(client_installe):
+    assert main(lire=_saisie("court", "court")) == 1
+    assert client_installe.get("/api/auth/moi").status_code == 200
+
+
+# --- Echecs bruyants --------------------------------------------------------
+
+
+def test_sans_compte_il_echoue_et_dit_quoi_faire(client):
+    """Un succes silencieux ferait croire au client que son mot de passe est
+    reinitialise alors qu'il resterait bloque."""
+    resultat = _lancer_par_moins_m()
+    assert resultat.returncode != 0
+    assert resultat.stdout.strip() == "", "Pas de demi-message laissant croire a un debut de travail."
+    assert "installation" in resultat.stderr.lower()
+
+
+def test_le_module_est_atteignable_par_moins_m(client):
+    """Ce que ce test N'ATTRAPE PAS : le defaut du 20/08/2026, ou le module
+    etait bien livre mais introuvable dans le Python EMBARQUE. Ce cas se
+    verifie a l'assemblage — build-package.ps1 § 6 bis."""
+    assert "ModuleNotFoundError" not in _lancer_par_moins_m().stderr

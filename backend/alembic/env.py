@@ -21,12 +21,35 @@ if config.config_file_name is not None:
 target_metadata = Base.metadata
 
 
+def rendre_type(type_, autogen_context):
+    """Rend les types MAISON avec leur equivalent SQLAlchemy.
+
+    Sans cela, l'autogeneration ecrit `app.models.types_sql.DecimalTexte(...)`
+    dans la migration : elle importerait alors le code de l'application, et une
+    migration deja appliquee chez un client se mettrait a dependre d'un module
+    qu'on est libre de renommer demain. Une migration doit rester lisible et
+    executable telle quelle, des annees plus tard.
+
+    `DecimalTexte` s'appuie sur `String` : le DDL produit est identique.
+    """
+    if type_.__class__.__name__ == "DecimalTexte":
+        return "sa.String(length=%d)" % type_.length if type_.length else "sa.String()"
+    return False
+
+
+def rendre_item(type_objet, objet, autogen_context):
+    if type_objet == "type":
+        return rendre_type(objet, autogen_context)
+    return False
+
+
 def run_migrations_offline() -> None:
     context.configure(
         url=DATABASE_URL,
         target_metadata=target_metadata,
         literal_binds=True,
         render_as_batch=True,
+        render_item=rendre_item,
     )
     with context.begin_transaction():
         context.run_migrations()
@@ -43,6 +66,7 @@ def run_migrations_online() -> None:
             connection=connection,
             target_metadata=target_metadata,
             render_as_batch=True,
+            render_item=rendre_item,
         )
         with context.begin_transaction():
             context.run_migrations()

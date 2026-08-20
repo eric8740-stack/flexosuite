@@ -80,6 +80,19 @@ sessions, **pas de JWT réinventé**. Migrations Alembic.
 
 - Critère : un devis complet se crée et se rejoue par l'API ; migrations vertes.
 
+Découpé en trois sous-lots, **backend livré avant le front** à chaque fois :
+
+- [x] **2a — le socle.** `utilisateur`, `session_utilisateur`, `parametres_couts` ;
+      migration initiale (aller-retour vérifié) ; installation, connexion,
+      déconnexion **révoquée en base**, `GET /api/contexte` complet, contrôle
+      d'origine sur les écritures, format d'erreur `{code, detail}` partout.
+      `reinitialiser_admin` implémenté et testé sur son comportement réel.
+- [ ] **2b — référentiels et paramètres.** ⚠️ **Changement de contrat** : le JSON
+      exact de chaque ressource n'y est pas encore. À annoncer à CC2 **avant
+      écriture**, dans une PR de documentation séparée.
+- [ ] **2c — optimisation, chiffrage, devis.** Le moteur du lot 1 branché sur
+      l'API. Les montants dorés restent la référence : aucun ne bouge.
+
 > **🟡 Contrat d'API : v1 annoncée le 20/08**, avant écriture du lot 2. Il porte
 > un **journal des changements** et un **état de livraison par section**. Quand il
 > bouge : annonce d'abord, **backend livré en premier** — l'inverse envoie le
