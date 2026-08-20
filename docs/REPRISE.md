@@ -27,12 +27,13 @@ autre poste obtient par `git pull` s'arrête à la première colonne.
 | #1 à #6 | contrat v0, moteur, montants dorés, contrat v1, front lot 3 | **mergées** |
 | #7 | les sept constats de l'audit externe — CORS, états de livraison, cookie, codes d'erreur | **mergée** |
 | #9 | front : aiguillage sur le code d'erreur, réglage CORS documenté dans `frontend/AGENTS.md` | **mergée** |
-| #8 | `frontend/.env.example` versionné, `.gitignore` à exception nominative, configuration de dev dans le README | **ouverte — chez l'audit** |
-| #10 | contrôles du front câblés dans la CI, exemple CORS à un seul hôte | **ouverte — chez l'audit** |
+| #10 | contrôles du front câblés dans le check requis, exemple CORS à un seul hôte, CI en Node 24 | **mergée** — `main` à `0c1622a` |
+| #8 | `frontend/.env.example` versionné, exception de chemin dans `.gitignore`, configuration de dev au README | **rebasée sur `main`, ouverte — chez l'audit** |
 
-⚠️ **#8 et #10 se recouvrent sur `backend/app/config.py`** : les deux corrigent
-l'exemple CORS. #10 va plus loin (renvoi au README). Merger #10 d'abord, puis
-rebaser #8 — la résolution tient en un bloc de commentaire.
+**Le recouvrement de #8 et #10 sur `backend/app/config.py` est résolu.** Les deux
+corrigeaient l'exemple CORS ; #10 est mergée et va plus loin (renvoi au README).
+Au rebase, #8 a **abandonné entièrement sa version** du bloc : elle ne touche
+plus `backend/`, et l'exemple à un seul hôte reste celui de #10.
 
 ## Fait
 
@@ -166,6 +167,6 @@ il reste à livrer le backend, puis à mettre à jour la table d'état de livrai
 Reste aussi au moteur : l'**optimiseur** qui choisit entre configurations. Il a
 besoin des barèmes, donc du lot 2.
 
-Avant d'ouvrir le lot 2 : **#8 et #10 doivent revenir de l'audit** — elles
-touchent le même fichier de configuration, et les laisser traîner ouvertes fait
-diverger l'état réel de ce document.
+Avant d'ouvrir le lot 2 : **#8 doit être validée par l'audit et mergée.** Elle
+seule porte encore de quoi démarrer le front sur un poste neuf ; la laisser
+ouverte fait diverger l'état réel de ce document de ce qu'un `git pull` donne.
