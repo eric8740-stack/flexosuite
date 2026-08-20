@@ -1,0 +1,63 @@
+@import "tailwindcss";
+
+/* Palette : un gris d'atelier, un bleu d'accent, et deux couleurs de statut.
+   Volontairement sobre — l'ecran est lu debout devant une presse, pas admire. */
+:root {
+  --fond: #f6f7f9;
+  --surface: #ffffff;
+  --texte: #14181f;
+  --texte-doux: #5a6472;
+  --bordure: #dde1e7;
+  --accent: #1d4ed8;
+  --accent-doux: #eff4ff;
+  --attention: #b45309;
+  --attention-doux: #fff7ed;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --fond: #0e1116;
+    --surface: #171b22;
+    --texte: #e8ebf0;
+    --texte-doux: #9aa4b2;
+    --bordure: #2a313b;
+    --accent: #7aa2ff;
+    --accent-doux: #172033;
+    --attention: #fbbf24;
+    --attention-doux: #2a2113;
+  }
+}
+
+@theme inline {
+  --color-fond: var(--fond);
+  --color-surface: var(--surface);
+  --color-texte: var(--texte);
+  --color-texte-doux: var(--texte-doux);
+  --color-bordure: var(--bordure);
+  --color-accent: var(--accent);
+  --color-accent-doux: var(--accent-doux);
+  --color-attention: var(--attention);
+  --color-attention-doux: var(--attention-doux);
+}
+
+body {
+  background: var(--fond);
+  color: var(--texte);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+/* Les champs de saisie restent des ilots clairs et lisibles, meme en theme
+   sombre : un deviseur qui saisit un format ne doit pas deviner ce qu'il tape. */
+input,
+select,
+textarea {
+  color-scheme: light;
+}
+
+/* Cible tactile minimale : l'imprimeur est debout, souvent avec des gants. */
+button,
+[role="button"],
+select,
+input[type="checkbox"] {
+  touch-action: manipulation;
+}
