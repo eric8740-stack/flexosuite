@@ -6,15 +6,13 @@
 ## En-tête
 
 - **Date** : 2026-08-20
-- **Lot en cours** : **0b terminé — prochain : lot 1, le moteur**
-- **Portes G0 et G1** : ✅ **franchies** (détail dans `docs/PLAN.md`).
-- **Porte G0** : ✅ **franchie**. La spec suffit à écrire le moteur sans rouvrir
-  l'ancien dépôt et sans un chiffre d'atelier réel — § 7 de la spec pour le
-  détail de ce qui reste (un catalogue à re-sourcer, et les courbes de barèmes
-  qui ne se reprennent pas par construction).
-- **Qui tient quoi** : une seule instance (**CC1, backend**). `docs/`, `deploy/`
-  et `tests/` lui appartiennent. **CC2 n'est pas démarré** et n'a rien à faire
-  tant que le top départ n'est pas donné.
+- **Lot en cours** : **lot 1 terminé — prochain : lot 2, données et API**
+- **Portes G0, G1 et G2** : ✅ **franchies** (détail et critères dans
+  `docs/PLAN.md`).
+- **Qui tient quoi** : **CC1** tient `backend/`, `docs/` et `deploy/`. **CC2 est
+  démarré** sur `frontend/` — le top départ a été donné le 20/08.
+  ⚠️ `docs/CONTRAT-API.md` **ne bouge plus sans annonce**, et le backend est
+  livré **avant** le front à chaque évolution.
 
 ## Fait
 
@@ -73,10 +71,26 @@
   vulnérabilité — on ne livre pas ça chez un imprimeur.
 - `docs/CONTRAT-API.md` v0 — le document que CC2 lit comme une loi.
 
+## Lot 1 — livré, et ce qu'il a appris
+
+- **40 tests verts**, écrits avant le code. Chaque poste est vérifié séparément.
+- **L'arrondi est reproduit, pas normalisé** : un arrondi pour Matière, Encres,
+  Calage, Roulage et Main d'œuvre ; **deux** pour Finitions ; **trois** pour
+  Outillage. Encres et Outillage font pourtant la même chose — Encres somme
+  **brut**. Les deux incohérences sont dans le code, commentées comme telles.
+- ⚠️ **Les trois montants dorés multi-lots ont dû être corrigés** : ils sortaient
+  d'une matière hors jeu doré (le moteur multi-lots lit le **complexe**, pas la
+  matière). Trouvé en dumpant la décomposition **avant** d'écrire le moteur.
+  Les trois invariants n'avaient rien signalé — ils sont vrais quelle que soit la
+  matière. **Un total ne se surveille pas tout seul.**
+- **Le métrage monte deux fois** : nombre de tours plafonné, **puis** métrage
+  arrondi au mètre supérieur. L'oublier fausse quatre postes à la fois.
+
 ## Prochaine étape
 
-**Lot 1 — le moteur**, en TDD contre les **cinq montants dorés** et les trois
-invariants de calage. Pur, sans base de données.
+**Lot 2 — données et API.** Modèle mono-tenant, migrations Alembic, endpoints du
+contrat, auth sur le patron de livraison. **Ce lot touche `docs/CONTRAT-API.md`**
+— l'annoncer à CC2 avant, et livrer le backend en premier.
 
-⚠️ Rappel avant d'écrire la première ligne : **l'arrondi se reproduit, il ne se
-normalise pas** (§ 3 bis de la spec).
+Reste aussi au moteur : l'**optimiseur** qui choisit entre configurations. Il a
+besoin des barèmes, donc du lot 2.
