@@ -144,6 +144,11 @@ Deux constats remontés par CC2, sans effet sur le métier ni sur un montant dor
   Le choix du job n'est pas cosmétique : `build` est un check **requis** sur
   `main`. Un troisième job ne le serait pas tant que la protection de branche ne
   le réclame pas — il pourrait échouer sans rien empêcher.
+  ⚠️ **Le câblage a immédiatement trouvé quelque chose** : la CI tournait sur
+  **Node 20**, que `jsdom` ne supporte pas (`^22.22.2 || ^24.15.0 || >=26`). Le
+  premier run est sorti en `webidl.util.markAsUncloneable is not a function`,
+  côté undici — un message qui ne nomme pas le vrai problème. **Node 24** en
+  intégration, la version du poste de développement.
 - **L'exemple CORS de `backend/app/config.py` mélangeait `127.0.0.1` et
   `localhost`.** Remplacé par une origine unique, avec l'avertissement et le
   renvoi au README. Le port n'entre pas dans la définition de *same-site*,
