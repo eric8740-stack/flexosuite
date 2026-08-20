@@ -30,7 +30,7 @@ from pathlib import Path
 RACINE = Path(__file__).resolve().parent.parent
 
 # Le SEUL endroit du depot ou une valeur de tarif a le droit d'etre ecrite.
-MODULE_FIXTURES = RACINE / "tests" / "fixtures" / "atelier_demo.py"
+MODULE_FIXTURES = RACINE / "backend" / "tests" / "fixtures" / "atelier_demo.py"
 
 # Repertoires balayes : tout ce qui part chez le client, plus le code de test.
 RACINES_SOURCES = ("backend", "deploy", "tests")
@@ -80,7 +80,13 @@ def _fichiers_python():
             if MODULE_FIXTURES.exists() and chemin.samefile(MODULE_FIXTURES):
                 continue
             parties = set(chemin.parts)
-            if parties & {"__pycache__", ".venv", "venv", "node_modules"}:
+            # `staging`, `dist` et `.cache` sont des artefacts de build : ils
+            # contiennent le Python embarque et ses dependances tierces. Les
+            # balayer serait long et hors sujet — ce n'est pas notre code.
+            if parties & {
+                "__pycache__", ".venv", "venv", "node_modules",
+                "staging", "dist", ".cache",
+            }:
                 continue
             yield chemin
 
