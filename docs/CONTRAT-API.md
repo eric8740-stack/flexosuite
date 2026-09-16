@@ -79,6 +79,7 @@ code. Détail en tête de chaque section.
 | Champ inconnu dans le corps | **422**. Ni ignoré, ni rangé. |
 | Ordre des listes | Identifiant croissant. ⚠️ **Limite connue de la pagination par `page`/`taille`** : elle n'offre aucune cohérence d'instantané. Si des éléments sont créés ou supprimés **entre deux appels**, une ligne peut être sautée ou vue deux fois. Ne pas bâtir de traitement qui suppose avoir tout vu exactement une fois. |
 | Décimaux | Normalisés **à l'écriture** (2 décimales, 4 pour `prix_m2_eur`) : ce qui est relu est exactement ce qui a été rangé. |
+| **Bornes des valeurs** | **Strictement > 0** : laizes, développé, largeur/hauteur d'outil, diamètre de bobine, vitesse, grammage, épaisseur, nombres de poses, coefficients de vitesse et de gâche. **≥ 0** : prix (`prix_m2_eur`, `montant_eur`), temps (`duree_calage_h`, `temps_changement_bobine_h`, `temps_calage_ajoute_h`), compteurs `nb_*` et `groupes_couleurs_requis`, `intervalle_dev_min_mm`. Hors borne → **422 `payload_invalide`**, le champ est nommé. Vaut au `POST` **et au `PUT`**. |
 | `email` non validé | C'est une **chaîne libre** : son format n'est pas vérifié — un carnet d'atelier contient des choses comme « voir le service achats ». (La nullabilité, elle, est traitée au-dessus : elle est cassante.) |
 
 **Section 6 — paramètres, calibration, barèmes** (lot 2b-2) :
@@ -609,6 +610,7 @@ refusé de la même façon. Les listes sont rendues par **identifiant croissant*
 | **Décimaux normalisés à l'écriture** | Deux décimales, **quatre** pour `prix_m2_eur`. Ce qui est relu est exactement ce qui a été rangé : l'API ne dit pas deux choses différentes selon le chemin emprunté. |
 | **Champs acceptant `null`** | `cylindre.nb_dents` (déjà annoncé), `cylindre.date_inventaire`, et `client.contact` / `email` / `telephone`. ⚠️ **Pour les quatre derniers, c'est un changement CASSANT**, pas une précision — voir le bloc dédié au journal des changements. `email` est par ailleurs une **chaîne libre** : son format n'est pas validé, le carnet d'adresses d'un atelier contient des choses comme « voir le service achats ». |
 | **Valeurs par défaut** | `actif` à `true` ; `forme_speciale` et `silhouette_automatique` à `false` ; `modules` et `modules_requis` à `[]` ; `groupes_couleurs_requis` à `0`. |
+| **Bornes des valeurs** | Le détail est au journal des changements ci-dessus. Deux points méritent d'être lus : **zéro reste accepté sur un prix** — une matière fournie par le client ne coûte rien, et l'interdire obligerait à inventer un tarif ; et **`intervalle_dev_min_mm` accepte zéro**, qui y signifie « pas de contrainte de pose » et non « contrainte nulle ». À l'inverse, un **coefficient** ne peut pas être nul : ils se cumulent multiplicativement, et un seul zéro annulerait la vitesse de toute la configuration. |
 
 > ### `actif`, et pourquoi on ne supprime pas
 >
