@@ -69,6 +69,10 @@ class Ressource:
     etiquette: str
     modele: type
     ecriture: type[BaseModel]
+    # Le schema du `PUT` : memes champs, mais TOUS obligatoires. Cf. constat 1
+    # de l'audit du 16/09/2026 — « remplacement complet » n'etait vrai que pour
+    # les champs sans valeur par defaut.
+    remplacement: type[BaseModel]
     public: type[BaseModel]
     # « cette machine », « cet outil » — le genre francais ne se devine pas.
     designation: str
@@ -193,7 +197,7 @@ def creer_routeur(r: Ressource) -> APIRouter:
 
     @routeur.put("/{id_element}", response_model=r.public)
     def remplacer(
-        id_element: int, entree: r.ecriture, db: SessionSQL = Depends(get_db)
+        id_element: int, entree: r.remplacement, db: SessionSQL = Depends(get_db)
     ):
         """REMPLACEMENT COMPLET, pas une modification partielle.
 
@@ -202,6 +206,12 @@ def creer_routeur(r: Ressource) -> APIRouter:
         referentiel se saisit dans un formulaire entier : accepter un corps
         partiel ferait disparaitre en silence les champs que le front aurait
         oublie de renvoyer.
+
+        ⚠️ Le schema est `r.remplacement` et NON `r.ecriture` : c'est tout le
+        correctif du constat 1 de l'audit. Avec le schema de creation, les champs
+        porteurs d'un defaut (`actif`, `modules`, `contact`...) n'etaient pas
+        exiges — ils etaient **reinitialises en silence**. Un `PUT` qui oubliait
+        `actif` reactivait un element desactive.
         """
         element = _exiger(db, r, id_element)
         donnees = entree.model_dump()
@@ -218,8 +228,19 @@ def creer_routeur(r: Ressource) -> APIRouter:
         par = est_reference(db, element)
         if par is not None:
             raise erreurs.reference_utilisee(r.designation, par)
+
         db.delete(element)
-        db.commit()
+        try:
+            db.commit()
+        except IntegrityError as exc:
+            # DEUXIEME SERRURE. `est_reference()` lit, puis on supprime : entre
+            # les deux, une ligne fille peut naitre. C'est alors SQLite qui
+            # refuse — et le contrat a deja le bon code pour ca. Laisser
+            # remonter l'exception rendait 500 sur un cas que le front sait
+            # traiter. Etroit sur un poste mono-utilisateur ; la demo publique,
+            # elle, ne l'est pas.
+            db.rollback()
+            raise erreurs.reference_utilisee(r.designation, "un autre element") from exc
         return Response(status_code=status.HTTP_204_NO_CONTENT)
 
     return routeur
@@ -231,6 +252,7 @@ RESSOURCES: tuple[Ressource, ...] = (
         etiquette="machines",
         modele=Machine,
         ecriture=sch.MachineEcriture,
+        remplacement=sch.MachineRemplacement,
         public=sch.MachinePublic,
         designation="cette machine",
         cles_uniques=(CleUnique(("nom",), "ce nom"),),
@@ -240,6 +262,7 @@ RESSOURCES: tuple[Ressource, ...] = (
         etiquette="cylindres",
         modele=Cylindre,
         ecriture=sch.CylindreEcriture,
+        remplacement=sch.CylindreRemplacement,
         public=sch.CylindrePublic,
         designation="ce cylindre",
         # Le repere est grave sur la machine : il est unique CHEZ ELLE, pas
@@ -254,6 +277,7 @@ RESSOURCES: tuple[Ressource, ...] = (
         etiquette="matieres",
         modele=Matiere,
         ecriture=sch.MatiereEcriture,
+        remplacement=sch.MatiereRemplacement,
         public=sch.MatierePublic,
         designation="cette matiere",
         cles_uniques=(CleUnique(("nom",), "ce nom"),),
@@ -263,6 +287,7 @@ RESSOURCES: tuple[Ressource, ...] = (
         etiquette="outils",
         modele=Outil,
         ecriture=sch.OutilEcriture,
+        remplacement=sch.OutilRemplacement,
         public=sch.OutilPublic,
         designation="cet outil",
         cles_uniques=(CleUnique(("reference",), "cette reference"),),
@@ -273,6 +298,7 @@ RESSOURCES: tuple[Ressource, ...] = (
         etiquette="clients",
         modele=Client,
         ecriture=sch.ClientEcriture,
+        remplacement=sch.ClientRemplacement,
         public=sch.ClientPublic,
         designation="ce client",
         cles_uniques=(CleUnique(("nom",), "ce nom"),),
@@ -282,6 +308,7 @@ RESSOURCES: tuple[Ressource, ...] = (
         etiquette="options",
         modele=Option,
         ecriture=sch.OptionEcriture,
+        remplacement=sch.OptionRemplacement,
         public=sch.OptionPublic,
         designation="cette option",
         cles_uniques=(CleUnique(("code",), "ce code"),),

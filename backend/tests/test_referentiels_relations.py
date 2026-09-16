@@ -116,6 +116,30 @@ def test_le_put_verifie_aussi_la_cle_etrangere(client_installe):
     assert reponse.json()["code"] == "payload_invalide"
 
 
+def test_une_suppression_refusee_par_la_BASE_rend_409_et_pas_500(
+    client_installe, monkeypatch
+):
+    """Point 7 de l'audit du 16/09/2026 — le défaut que ce test aurait attrapé.
+
+    `est_reference()` est une garde APPLICATIVE : elle lit, puis on supprime. Si
+    une ligne fille apparait entre les deux, c'est SQLite qui refuse, et le
+    `commit` n'etait protege par rien — l'appelant recevait **500** alors que le
+    contrat a un code exact pour ce cas.
+
+    La course est etroite sur un poste mono-utilisateur ; la demo publique, elle,
+    n'est pas mono-utilisateur. On la simule en neutralisant la garde
+    applicative : la contrainte de la base reste, et c'est elle qu'on exerce.
+    """
+    corps = corps_complet(client_installe, CYLINDRES)
+    client_installe.post(CYLINDRES.chemin, json=corps)
+    monkeypatch.setattr("app.routers.referentiels.est_reference", lambda db, e: None)
+
+    reponse = client_installe.delete(f"{MACHINES.chemin}/{corps['machine_id']}")
+
+    assert reponse.status_code == 409, reponse.text
+    assert reponse.json()["code"] == "reference_utilisee"
+
+
 def test_un_outil_peut_pointer_un_cylindre_desactive(client_installe):
     """`actif = false` n'est pas une suppression : l'element reste utilisable
     en lecture et en reference. C'est l'optimisation du lot 2c qui l'ecartera,

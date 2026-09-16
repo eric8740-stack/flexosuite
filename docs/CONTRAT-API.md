@@ -33,20 +33,51 @@
 ### v1.2 — section 5 **livrée** le 16/09/2026 (lot 2b-1)
 
 > **Le backend est parti en premier**, comme annoncé. Les six référentiels
-> existent : ils ne répondent plus 404. Rien de ce qui avait été annoncé n'a
-> changé de forme — ce qui suit est la liste des **précisions**, c'est-à-dire
-> des points que l'annonce n'avait pas tranchés et qu'il a bien fallu trancher
-> pour écrire le code. Elles sont détaillées en tête de la section 5.
+> existent : ils ne répondent plus 404.
+>
+> ⚠️ **Un changement CASSANT s'est glissé dans cette livraison, et il avait
+> d'abord été classé « précision » à tort.** Il est isolé ci-dessous, avant les
+> vraies précisions. Relevé par l'audit externe du 16/09/2026 ; le détail et le
+> verdict sont dans `docs/AUDIT-2026-09-16-pr12.md`.
+
+### ⚠️ CASSANT — quatre champs deviennent `null`-ables en RÉPONSE
+
+| Champ | Annoncé le 20/08 | Livré |
+| --- | --- | --- |
+| `cylindre.date_inventaire` | `"2026-08-20"` | `string \| null` |
+| `client.contact` | `"Service achats"` | `string \| null` |
+| `client.email` | `"contact@example.invalid"` | `string \| null` |
+| `client.telephone` | `"00 00 00 00 00"` | `string \| null` |
+
+**Pourquoi c'est cassant et pas une précision** : accepter `null` en *entrée* est
+additif ; en *rendre* élargit le type de la réponse de `string` à
+`string | null`. Un front typé depuis le JSON exact annoncé déclare `string` et
+peut appeler directement une opération de chaîne — il casse sur `null`.
+
+**Pourquoi on ne revient pas en arrière** : c'est métier. Un parc réel n'a pas
+toujours la date d'inventaire d'un cylindre, et le carnet d'adresses d'un
+atelier n'a pas toujours d'email. Rendre ces champs obligatoires produirait des
+saisies inventées, ce qui est pire qu'un `null` honnête.
+
+**Ce que CC2 doit faire** : typer ces quatre champs en `string | null` et poser
+une garde avant tout affichage ou toute opération de chaîne.
+
+`nb_dents` n'est PAS concerné : sa nullabilité avait bien été annoncée en v1.2.
+
+### Les vraies précisions
+
+Ce qui suit n'était pas tranché par l'annonce et a dû l'être pour écrire le
+code. Détail en tête de la section 5.
 
 | Point | Précision |
 | --- | --- |
 | Clés d'unicité | Écrites noir sur blanc, section 5. `cylindre` est unique sur **(machine_id, repere_machine)**, pas sur le repère seul. |
-| `PUT /{id}` | **Remplacement complet**, pas partiel. Le `PUT` partiel est celui des paramètres de coûts (section 6), et lui seul. |
+| `PUT /{id}` | **Remplacement complet**, pas partiel : le corps doit porter **tous** les champs, y compris ceux qui ont une valeur par défaut à la création. Un champ absent répond **422**, il n'est jamais deviné. Le `PUT` partiel est celui des paramètres de coûts (section 6), et lui seul. |
 | Clé étrangère inconnue | **422 `payload_invalide`**, pas 404 — le front surligne le champ. |
 | Champ inconnu dans le corps | **422**. Ni ignoré, ni rangé. |
-| Ordre des listes | Identifiant croissant. |
+| Ordre des listes | Identifiant croissant. ⚠️ **Limite connue de la pagination par `page`/`taille`** : elle n'offre aucune cohérence d'instantané. Si des éléments sont créés ou supprimés **entre deux appels**, une ligne peut être sautée ou vue deux fois. Ne pas bâtir de traitement qui suppose avoir tout vu exactement une fois. |
 | Décimaux | Normalisés **à l'écriture** (2 décimales, 4 pour `prix_m2_eur`) : ce qui est relu est exactement ce qui a été rangé. |
-| Champs facultatifs | `cylindre.date_inventaire` et `client.contact` / `email` / `telephone` acceptent `null`. `email` est une **chaîne libre**, son format n'est pas validé. |
+| `email` non validé | C'est une **chaîne libre** : son format n'est pas vérifié — un carnet d'atelier contient des choses comme « voir le service achats ». (La nullabilité, elle, est traitée au-dessus : elle est cassante.) |
 
 **Ce que CC2 peut coder maintenant** : les six écrans de référentiels, pour de
 vrai. **Ce qui reste en 404** : optimisation, chiffrage, devis, et la section 6
@@ -533,12 +564,12 @@ refusé de la même façon. Les listes sont rendues par **identifiant croissant*
 | Point | Ce qui a été tranché |
 | --- | --- |
 | **Clés d'unicité** | `machine.nom` · `matiere.nom` · `outil.reference` · `client.nom` · `option.code` · `cylindre` **(machine_id, repere_machine)**. Un doublon répond **409 `deja_existant`**, et le `detail` nomme la clé. ⚠️ Le repère d'un cylindre est **gravé sur sa machine** : deux presses ont chacune leur « A3 ». Une unicité posée sur le seul repère casserait un parc réel dès la deuxième presse. |
-| **`PUT /{id}` remplace TOUT** | Le corps entier est attendu, comme au `POST`. Un référentiel se saisit dans un formulaire entier ; accepter un corps partiel ferait disparaître en silence les champs que le front aurait oublié de renvoyer. Le seul `PUT` partiel du contrat est celui des paramètres de coûts (section 6), parce qu'on y enregistre champ par champ. |
+| **`PUT /{id}` remplace TOUT** | Le corps doit porter **tous** les champs — y compris ceux qui ont une valeur par défaut à la création (`actif`, `modules`, `contact`…). Un champ absent répond **422 `payload_invalide`** en nommant le champ ; il n'est jamais deviné. ⚠️ Ce n'était pas le cas à la première livraison : les champs à valeur par défaut étaient alors **réinitialisés en silence**, et un `PUT` qui oubliait `actif` réactivait un élément désactivé. Corrigé le 16/09/2026 après audit. Un champ *nullable* doit être **présent**, sa valeur peut être `null`. Le seul `PUT` partiel du contrat est celui des paramètres de coûts (section 6). |
 | **Clé étrangère inconnue → 422** | `cylindre.machine_id` ou `outil.cylindre_id` qui ne désigne rien répond **422 `payload_invalide`**, et le `detail` nomme le champ. Pas 404 : le contrat s'en sert déjà pour « cet endpoint n'est pas encore livré », et un front qui reçoit 404 sur un `POST` ne saurait pas s'il doit surligner un champ ou renoncer à l'écran. |
 | **Champ inconnu → 422** | Un champ que le contrat ne porte pas est refusé, jamais ignoré. |
 | **`DELETE` refusé, aujourd'hui** | **409 `reference_utilisee`** sur une machine portée par un cylindre, et sur un cylindre porté par un outil. Les devis s'y ajouteront au **lot 2c**, au même point du code. Le `detail` propose la désactivation. |
 | **Décimaux normalisés à l'écriture** | Deux décimales, **quatre** pour `prix_m2_eur`. Ce qui est relu est exactement ce qui a été rangé : l'API ne dit pas deux choses différentes selon le chemin emprunté. |
-| **Champs acceptant `null`** | `cylindre.nb_dents` (déjà annoncé), `cylindre.date_inventaire`, et `client.contact` / `email` / `telephone`. ⚠️ **`email` est une chaîne libre** : son format n'est pas validé — le carnet d'adresses d'un atelier contient des choses comme « voir le service achats ». |
+| **Champs acceptant `null`** | `cylindre.nb_dents` (déjà annoncé), `cylindre.date_inventaire`, et `client.contact` / `email` / `telephone`. ⚠️ **Pour les quatre derniers, c'est un changement CASSANT**, pas une précision — voir le bloc dédié au journal des changements. `email` est par ailleurs une **chaîne libre** : son format n'est pas validé, le carnet d'adresses d'un atelier contient des choses comme « voir le service achats ». |
 | **Valeurs par défaut** | `actif` à `true` ; `forme_speciale` et `silhouette_automatique` à `false` ; `modules` et `modules_requis` à `[]` ; `groupes_couleurs_requis` à `0`. |
 
 > ### `actif`, et pourquoi on ne supprime pas

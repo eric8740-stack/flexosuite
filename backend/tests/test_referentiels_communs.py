@@ -200,6 +200,67 @@ def test_le_put_remplace_et_rend_le_corps_complet(client_installe, cas):
 
 
 @pytest.mark.parametrize("cas", TOUTES, ids=str)
+def test_le_put_refuse_un_corps_INCOMPLET(client_installe, cas):
+    """Constat 1 de l'audit du 16/09/2026 — le défaut que ce test aurait attrapé.
+
+    Un champ REQUIS omis rendait deja 422. Mais les champs porteurs d'une valeur
+    par defaut — `actif`, `modules`, `contact`, `forme_speciale`... — etaient
+    silencieusement REINITIALISES : un `PUT` qui oubliait `actif` reactivait un
+    element desactive, sans erreur et sans trace.
+
+    C'est la regle « on ne supprime pas, on desactive » qu'un enregistrement
+    distrait defaisait — celle-la meme qui protege l'histoire des devis deja
+    envoyes a des clients.
+
+    « Remplacement complet » doit donc vouloir dire complet **pour tous les
+    champs**, pas seulement pour les obligatoires.
+    """
+    corps = corps_complet(client_installe, cas)
+    cree = client_installe.post(cas.chemin, json=corps).json()
+    champs_a_defaut = [c for c in cas.cles_attendues if c not in corps and c != "id"]
+    assert "actif" in corps, "le corps de reference doit porter `actif`"
+
+    for champ in ["actif", *champs_a_defaut]:
+        ampute = {c: v for c, v in corps.items() if c != champ}
+        reponse = client_installe.put(f"{cas.chemin}/{cree['id']}", json=ampute)
+
+        assert reponse.status_code == 422, f"{champ} omis -> {reponse.status_code}"
+        assert reponse.json()["code"] == "payload_invalide"
+        assert champ in reponse.json()["detail"], champ
+
+
+def test_le_put_incomplet_ne_reactive_pas_un_element_desactive(client_installe):
+    """La conséquence métier du constat 1, verifiee de bout en bout."""
+    corps = dict(corps_complet(client_installe, MACHINES))
+    corps["actif"] = False
+    cree = client_installe.post(MACHINES.chemin, json=corps).json()
+    ampute = {c: v for c, v in corps.items() if c not in ("actif", "modules")}
+
+    client_installe.put(f"{MACHINES.chemin}/{cree['id']}", json=ampute)
+
+    relu = client_installe.get(f"{MACHINES.chemin}/{cree['id']}").json()
+    assert relu["actif"] is False
+    assert relu["modules"] == corps["modules"]
+
+
+@pytest.mark.parametrize("cas", TOUTES, ids=str)
+def test_le_put_accepte_null_sur_un_champ_nullable_present(client_installe, cas):
+    """Le contre-test : « tous les champs obligatoires » ne veut pas dire « tous
+    les champs non nuls ». Un champ nullable doit etre PRESENT, sa valeur peut
+    etre `null` — sinon on ne pourrait plus effacer un email."""
+    corps = dict(corps_complet(client_installe, cas))
+    cree = client_installe.post(cas.chemin, json=corps).json()
+    nullables = [c for c, v in corps.items() if v is None]
+    if not nullables:
+        pytest.skip("cette ressource n'a aucun champ nullable dans le corps de demo")
+
+    reponse = client_installe.put(f"{cas.chemin}/{cree['id']}", json=corps)
+
+    assert reponse.status_code == 200, reponse.text
+    assert all(reponse.json()[c] is None for c in nullables)
+
+
+@pytest.mark.parametrize("cas", TOUTES, ids=str)
 def test_le_put_sur_soi_meme_ne_declenche_pas_deja_existant(client_installe, cas):
     """Enregistrer un formulaire sans toucher a la cle ne doit pas se heurter a
     sa propre valeur — sinon plus aucune modification ne passe."""

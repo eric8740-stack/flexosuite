@@ -15,15 +15,44 @@ Deux conventions valent pour les six :
   L'ordre des cles change (`id` en dernier) — un objet JSON n'est pas ordonne,
   et aucun front n'en depend.
 """
+import copy
 from datetime import date
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, create_model
+from pydantic_core import PydanticUndefined
 
 from app.schemas.decimaux import Decimal2, Decimal4
 
 ECRITURE = ConfigDict(extra="forbid")
 LECTURE = ConfigDict(extra="forbid", from_attributes=True)
+
+
+def remplacement(modele: type[BaseModel], nom: str) -> type[BaseModel]:
+    """Le meme schema, mais dont **aucun champ n'a de valeur par defaut**.
+
+    Constat 1 de l'audit du 16/09/2026. « Remplacement complet » etait vrai pour
+    les champs obligatoires et **faux** pour les autres : un `PUT` qui omettait
+    `actif` reactivait silencieusement un element desactive, et un `PUT` sans
+    `modules` vidait la liste. La regle « on ne supprime pas, on desactive » —
+    celle qui protege l'histoire des devis deja envoyes — se defaisait sur un
+    enregistrement distrait.
+
+    Le schema est **derive**, pas recopie six fois : un champ ajoute demain a une
+    ressource devient obligatoire au `PUT` sans que personne ait a y penser.
+    C'est precisement le champ oublie qui a produit le defaut.
+
+    ⚠️ Obligatoire ne veut pas dire non nul : un champ nullable doit etre
+    **present**, sa valeur peut rester `null`. Sinon on ne pourrait plus effacer
+    l'email d'un client.
+    """
+    champs = {}
+    for nom_champ, info in modele.model_fields.items():
+        exige = copy.deepcopy(info)
+        exige.default = PydanticUndefined
+        exige.default_factory = None
+        champs[nom_champ] = (info.annotation, exige)
+    return create_model(nom, __base__=modele, **champs)
 
 
 class MachineEcriture(BaseModel):
@@ -166,3 +195,14 @@ class OptionPublic(OptionEcriture):
     model_config = LECTURE
 
     id: int
+
+
+# --- Schemas de REMPLACEMENT (`PUT`) ----------------------------------------
+# Derives des schemas d'ecriture : memes champs, memes contraintes, mais tous
+# obligatoires. Cf. `remplacement()` et le constat 1 de l'audit du 16/09/2026.
+MachineRemplacement = remplacement(MachineEcriture, "MachineRemplacement")
+CylindreRemplacement = remplacement(CylindreEcriture, "CylindreRemplacement")
+MatiereRemplacement = remplacement(MatiereEcriture, "MatiereRemplacement")
+OutilRemplacement = remplacement(OutilEcriture, "OutilRemplacement")
+ClientRemplacement = remplacement(ClientEcriture, "ClientRemplacement")
+OptionRemplacement = remplacement(OptionEcriture, "OptionRemplacement")
