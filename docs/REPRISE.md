@@ -337,7 +337,7 @@ de la #13 sur la #12 a révélé un test devenu faux, que nul rapport n'avait vu
 
 | PR | Contenu | Audit Codex | État |
 | --- | --- | --- | --- |
-| **2c-0** | contrat **v1.3 annoncé**, docs seulement | relecture d'Eric | **ouverte** |
+| **2c-0** | contrat **v1.3 annoncé**, docs seulement | relecture d'Eric | **PR #15 ouverte** |
 | **2c-1** | référentiel `encres`, paramètres géométriques, `GET /api/sens-enroulement` | non | à venir |
 | **2c-2** | optimiseur (moteur pur) + `POST /api/optimisation/configurations` | **oui** | à venir |
 | **2c-3** | `POST /api/devis/apercu` — M1, M2, M3 passent par l'API | **oui** | à venir |
