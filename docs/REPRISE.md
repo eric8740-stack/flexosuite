@@ -5,21 +5,22 @@
 
 ## En-tête
 
-- **Date** : 2026-08-20
-- **Lot en cours** : **lot 2 — données et API**. Sous-lot **2a livré**
-  (modèle, migrations, session) ; 2b et 2c à venir. Lots 0, 1 et 3 livrés.
+- **Date** : 2026-09-16
+- **Lot en cours** : **lot 2 — données et API**. Sous-lots **2a mergé** et
+  **2b-1 en PR** (les six référentiels) ; 2b-2 et 2c à venir. Lots 0, 1 et 3
+  livrés.
 - **Portes G0, G1 et G2** : ✅ **franchies** (détail et critères dans
   `docs/PLAN.md`).
-- **Contrat d'API** : **v1.1**. La v1 avait été annoncée **avant écriture** ;
-  la v1.1 est la **livraison** du lot 2a, pas un changement de forme. Chaque
-  section porte son **état de livraison** ; le journal des changements ouvre le
-  document.
+- **Contrat d'API** : **v1.2**, annoncée le 20/08 **avant écriture**, dont la
+  **section 5 est livrée** (lot 2b-1). La section 6 reste en ⏳ jusqu'au 2b-2.
+  Chaque section porte son **état de livraison** ; le journal des changements
+  ouvre le document, en antéchronologique.
 - **Qui tient quoi** : **CC1** tient `backend/`, `docs/` et `deploy/`. **CC2**
   tient `frontend/` — lot 3 livré et mergé.
   ⚠️ `docs/CONTRAT-API.md` **ne bouge plus sans annonce**, et le backend est
   livré **avant** le front à chaque évolution.
 
-## Mergé sur `main`, ou seulement en PR — au 20/08/2026
+## Mergé sur `main`, ou seulement en PR — au 16/09/2026
 
 La distinction compte : une PR ouverte n'est **pas** l'état du dépôt. Ce qu'un
 autre poste obtient par `git pull` s'arrête à la première colonne.
@@ -31,7 +32,38 @@ autre poste obtient par `git pull` s'arrête à la première colonne.
 | #9 | front : aiguillage sur le code d'erreur, réglage CORS documenté dans `frontend/AGENTS.md` | **mergée** |
 | #10 | contrôles du front câblés dans le check requis, exemple CORS à un seul hôte, CI en Node 24 | **mergée** — `main` à `0c1622a` |
 | #8 | `frontend/.env.example` versionné, exception de chemin dans `.gitignore`, configuration de dev au README | **mergée** — `main` à `c12749a` |
-| #11 | **lot 2a** : modèle mono-tenant, migrations, installation et session | **ouverte — chez l'audit** |
+| #11 | **lot 2a** : modèle mono-tenant, migrations, installation et session | **mergée** — `main` à `5b5532f` |
+| #12 | **lot 2b-1** : les six référentiels, branche `lot/2b-referentiels` | **ouverte — audit Codex traité et CORRIGÉ** (`1f969b4`), en attente du feu vert d'Eric |
+| #13 | **lot 2b-2** : paramètres, calibration, barèmes, branche `lot/2b-parametres` | **ouverte — audit Codex traité, AUCUNE correction appliquée** (`390cfd2`) : 7 constats, dont un arbitrage métier en attente |
+
+### Audits du 16/09/2026 — ce qu'ils ont changé
+
+Les deux PR du lot 2b ont été auditées par Codex le même jour. Les rapports, les
+analyses Claude figées **avant lecture** et les verdicts sont dans `docs/` :
+`AUDIT-2026-09-16-pr12.md` et `AUDIT-2026-09-16-pr13.md`.
+
+- **PR #12 — corrigée.** Quatre constats traités, `1f969b4`. Le `PUT` des
+  référentiels exige désormais **tous** les champs (il réinitialisait en silence
+  ceux qui avaient un défaut — un `PUT` sans `actif` réactivait un élément
+  désactivé) ; la nullabilité de quatre champs est reclassée **CASSANTE** au
+  contrat, avec consigne à CC2 ; le test de migration compare le **DDL complet** ;
+  une course sur `DELETE` rend 409 au lieu de 500. **232 tests**, les 8 neufs
+  vérifiés **dans les deux sens**.
+- **PR #13 — auditée, non corrigée.** Sept constats, deux ÉLEVÉS : aucune borne
+  sur les paramètres tarifaires (coûts **négatifs** acceptés en 200, avec
+  `calibration_faite=true` — reproduit), et `assurer_baremes()` qui casse sous
+  concurrence (500, reproduit avec deux sessions réelles). Ordre de correction et
+  **la question à trancher** (borne haute de `marge_standard_pct`) en fin de
+  `docs/AUDIT-2026-09-16-pr13.md`.
+
+⚠️ **La #13 est empilée sur un état antérieur aux corrections de la #12.** Fusion
+d'essai jouée : les correctifs survivent intacts, mais `docs/CONTRAT-API.md`
+**entre en conflit**, exactement sur le bloc « CASSANT » destiné à CC2. À
+résoudre **à la main**, en vérifiant que le bloc survit.
+
+⚠️ Et un piège mesuré : le test de DDL joue `downgrade -1`. Après fusion de la
+#13, `-1` désigne `bareme` — la comparaison **se redirige toute seule** et cesse
+de couvrir les référentiels, sans qu'aucun test ne rougisse.
 
 Plus rien en attente d'audit à l'ouverture du lot 2 : le recouvrement de #8 et
 #10 sur `backend/app/config.py` a été résolu au rebase — #8 avait abandonné
@@ -199,14 +231,55 @@ tombent au centime, ce n'est pas négociable. `DecimalTexte` stocke la valeur
 telle qu'elle a été calculée. Limite assumée et écrite : **aucun tri SQL** sur
 ces colonnes, il serait lexicographique.
 
+## Lot 2b-1 — les six référentiels
+
+- **Un seul routeur CRUD, instancié six fois** (`app/routers/referentiels.py`).
+  Ce qui est propre à chaque ressource — clés uniques, clés étrangères,
+  désignation française — est **déclaré** dans une `Ressource` et nulle part
+  ailleurs. Six fichiers presque identiques auraient fini par ne plus l'être, et
+  une pagination corrigée dans cinq routeurs sur six ne se voit pas à la
+  relecture.
+- **Les gardes sont posées sur le routeur, pas sur chaque endpoint**, dans
+  l'ordre voulu : `exiger_session` (401) puis `interdire_ecriture_demo` (403).
+  Aucun endpoint ne peut les oublier.
+- **`est_reference()` est un point unique** (`app/services/referentiels.py`) :
+  le lot 2c ajoutera les devis en étendant le dictionnaire `LIENS`, **pas en
+  écrivant une deuxième fonction**.
+- **L'unicité est tranchée par la BASE**, pas par une lecture préalable : la
+  contrainte SQL ne laisse pas de fenêtre entre le contrôle et l'insertion. La
+  relecture qui suit ne sert qu'à **nommer** le champ fautif dans le `detail`.
+- **Nouveau type SQL `JsonTexte`** pour `modules`, `modules_requis` et
+  `tarification`. Même limite assumée que `DecimalTexte` : **aucune requête SQL
+  ne filtre dessus**, le filtrage se fait en Python.
+- **221 tests verts** (77 avant), dont l'aller-retour de migration joué en
+  sous-processus sur une base vierge — la commande même que joue `install.bat`
+  chez le client, et l'état constaté avec `sqlite3`, pas avec la sortie
+  d'Alembic.
+
+### Ce que le banc de mutations a trouvé
+
+Sept mutations jouées, **six rouges** — et **une verte**, qui est le vrai
+résultat :
+
+> **Retirer `.order_by(id)` du routeur ne fait rougir aucun test.** Sur SQLite,
+> l'ordre naturel d'un `SELECT` sans tri coïncide avec l'ordre des identifiants.
+> Le test attrape un ordre explicite **faux** (tri inversé : rouge, vérifié), il
+> n'attrape pas un ordre **absent**. La limite est écrite dans le docstring du
+> test, pour qu'on ne le croie pas plus fort qu'il n'est.
+
+C'est le rappel du lot 1, dans une autre matière : **une suite verte ne dit rien
+de ce qu'elle ne couvre pas.**
+
 ## Prochaine étape
 
-**Lot 2b — référentiels et paramètres.** Machines, cylindres, matières, outils,
-clients, options, barèmes, et les paramètres de coûts. **Le contrat est déjà
-annoncé en v1.2** — sections 5 et 6 écrites champ par champ, deux codes
-d'erreur ajoutés (`reference_utilisee`, `deja_existant`), enveloppe de liste
-uniforme. Rien n'en est implémenté : l'annonce précède l'écriture, comme pour
-la v1.
+**Lot 2b-2 — paramètres, calibration, barèmes** (section 6 du contrat) :
+`GET`/`PUT` des paramètres de coûts avec `calibration_faite` calculé et un `PUT`
+**partiel**, `POST /api/calibration/taux-machine` en **calcul pur sans
+écriture**, et les quatre barèmes livrés **en mode neutre**.
+
+⚠️ **La PR 2b-1 n'est pas mergée** : elle attend le job `test` vert et le feu
+vert d'Eric. Le 2b-2 part sur une branche séparée et **ne dépend pas de ce
+merge**.
 
 Puis **lot 2c — optimisation, chiffrage, devis**, où le moteur du lot 1 est
 enfin branché sur une API.

@@ -93,3 +93,78 @@ FORMAT_HAUTEUR_MM = Decimal("80")
 QUANTITE_PAR_LOT = 10_000
 POSES_LAIZE = 3
 POSES_DEV = 2
+
+# =============================================================================
+#  REFERENTIELS DEMO — les corps exacts de la section 5 du contrat
+#
+#  Ils vivent ICI et nulle part ailleurs : `vitesse_moyenne_m_h`, `duree_calage_h`
+#  et `prix_m2_eur` sont des champs tarifaires, et le garde-fou de
+#  confidentialite refuse qu'une de leurs valeurs soit ecrite dans un autre
+#  fichier du depot. Les tests importent, ils ne recopient pas.
+#
+#  Les deux corps a cle etrangere partent SANS elle : c'est le test qui cree la
+#  machine ou le cylindre, puis ajoute l'identifiant obtenu.
+# =============================================================================
+MACHINE_DEMO = {
+    "nom": "Presse Demo A",
+    "laize_utile_mm": "320.00",
+    "laize_maxi_mm": "330.00",
+    "vitesse_moyenne_m_h": 5000,
+    "duree_calage_h": "2.00",
+    "nb_groupes_couleurs": 8,
+    "modules": ["vernis", "dorure"],
+    "diametre_bobine_maxi_mm": "800.00",
+    "temps_changement_bobine_h": "0.25",
+    "actif": True,
+}
+
+# `nb_dents` a None VOLONTAIREMENT : c'est un repere de catalogue facultatif,
+# et le contrat v1.2 l'a rendu nullable. Le cas nul est donc le cas nominal.
+CYLINDRE_DEMO = {
+    "developpe_mm": "300.00",
+    "nb_dents": None,
+    "repere_machine": "A3",
+    "nb_porte_cliches": 2,
+    "date_inventaire": "2026-08-20",
+    "actif": True,
+}
+
+MATIERE_DEMO = {
+    "nom": "Papier Demo 100",
+    "grammage_g_m2": "100.00",
+    "prix_m2_eur": "0.5000",
+    "epaisseur_reelle_micron": 95,
+    "actif": True,
+}
+
+OUTIL_DEMO = {
+    "reference": "OD-2201",
+    "largeur_mm": "100.00",
+    "hauteur_mm": "80.00",
+    "nb_poses_laize": 3,
+    "nb_poses_developpe": 2,
+    "forme_speciale": False,
+    "actif": True,
+}
+
+CLIENT_DEMO = {
+    "nom": "Etiquettes Demo SAS",
+    "contact": "Service achats",
+    "email": "contact@example.invalid",
+    "telephone": "00 00 00 00 00",
+    "intervalle_dev_min_mm": "3.00",
+    "actif": True,
+}
+
+OPTION_DEMO = {
+    "code": "microperfo",
+    "libelle": "Microperforation",
+    "groupes_couleurs_requis": 0,
+    "modules_requis": ["microperfo"],
+    "coefficient_vitesse": "0.85",
+    "coefficient_gache": "1.10",
+    "temps_calage_ajoute_h": "0.25",
+    "tarification": {"type": "forfait", "montant_eur": "45.00"},
+    "silhouette_automatique": True,
+    "actif": True,
+}
