@@ -669,6 +669,13 @@ modification pour tenir un prix à jour.
 }
 ```
 
+> ⚠️ **Cet exemple est une ILLUSTRATION, pas un attendu.** Le `177.70` vaut
+> pour **10 000 exemplaires commandés** (1 777,00 ÷ 10) — une quantité posée
+> ici pour que l'exemple se recontrôle à la main. Le cas V1a de
+> `docs/SPEC-METIER.md` § 5, dont sort le 1 777,00, **ne porte aucune
+> quantité** : il n'a donc **pas** de prix au mille doré. Les montants dorés du
+> prix au mille sont **M1 (58,54), M2 (46,04) et M3 (58,54)**, au § 6.
+
 **Trois obligations pour le front :**
 
 1. **`coefficient` s'affiche à côté de `marge_pct`.** `× (1 + pct)` est une
