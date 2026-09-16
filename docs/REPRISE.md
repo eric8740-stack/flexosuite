@@ -33,7 +33,7 @@ autre poste obtient par `git pull` s'arrête à la première colonne.
 | #10 | contrôles du front câblés dans le check requis, exemple CORS à un seul hôte, CI en Node 24 | **mergée** — `main` à `0c1622a` |
 | #8 | `frontend/.env.example` versionné, exception de chemin dans `.gitignore`, configuration de dev au README | **mergée** — `main` à `c12749a` |
 | #11 | **lot 2a** : modèle mono-tenant, migrations, installation et session | **mergée** — `main` à `5b5532f` |
-| _à ouvrir_ | **lot 2b-1** : les six référentiels, branche `lot/2b-referentiels` | **ouverte — en attente du feu vert d'Eric** |
+| #12 | **lot 2b-1** : les six référentiels, branche `lot/2b-referentiels` | **ouverte — en attente du job `test` et du feu vert d'Eric** |
 
 Plus rien en attente d'audit à l'ouverture du lot 2 : le recouvrement de #8 et
 #10 sur `backend/app/config.py` a été résolu au rebase — #8 avait abandonné
