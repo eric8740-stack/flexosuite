@@ -45,6 +45,36 @@ def _valider_machines(db: SessionSQL, machines_ids: list[int]) -> None:
             )
 
 
+def _refuser_une_identite_contradictoire(entree, bareme: Bareme) -> None:
+    """`type` et `libelle` restent ACCEPTES, mais plus s'ils CONTREDISENT l'URL.
+
+    Constat 6 de l'audit du 16/09/2026. Les accepter et les ignorer permet au
+    front de reposer l'objet qu'il vient de lire sans l'amputer — l'argument est
+    bon et il est conserve. Mais il y avait une difference que l'argument
+    n'avait pas vue :
+
+    - `neutre` et `calibration_faite` sont **calcules**. Les renvoyer faux ne
+      peut designer autre chose, donc les ignorer est sans danger ;
+    - `type` est la **cle primaire**. Le renvoyer faux designe un **autre
+      objet**.
+
+    Avant : `PUT /api/baremes/echenillage` portant `"type": "effet_banane"`
+    ecrivait dans `echenillage`, en silence. Une erreur d'etat du front y
+    deversait les donnees du mauvais bareme sans qu'aucun signal ne parte.
+
+    `neutre` reste ignore sans condition : il est reellement calcule.
+    """
+    if entree.type is not None and entree.type != bareme.type:
+        raise erreurs.payload_invalide(
+            f"type (le corps annonce « {entree.type} », l'URL designe « {bareme.type} »)"
+        )
+    if entree.libelle is not None and entree.libelle != bareme.libelle:
+        raise erreurs.payload_invalide(
+            f"libelle (le corps annonce « {entree.libelle} », "
+            f"ce bareme porte « {bareme.libelle} »)"
+        )
+
+
 @router.get("", response_model=Page[BaremePublic])
 def lister(db: SessionSQL = Depends(get_db)) -> Page[BaremePublic]:
     """Les quatre, toujours — crees a la volee s'ils manquent.
@@ -79,6 +109,7 @@ def calibrer(
     if bareme is None:
         raise erreurs.introuvable("Ce bareme")
 
+    _refuser_une_identite_contradictoire(entree, bareme)
     _valider_machines(db, entree.machines_ids)
     bareme.machines_ids = entree.machines_ids
     bareme.donnees = entree.donnees

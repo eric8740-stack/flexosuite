@@ -91,10 +91,31 @@ code. Détail en tête de chaque section.
 | **Précision des montants** | Deux décimales, sauf `finitions_prix_m2_eur` qui en porte **quatre** (c'est un prix au m², comme `matiere.prix_m2_eur`). `marge_confort_roulage_mm` est un **entier**, pas une chaîne : c'est une dimension en millimètres. |
 | **Barèmes créés à la volée** | Au premier accès, pas par la migration ni par l'installation — une installation faite avant ce lot retrouve ses quatre barèmes sans intervention. |
 | **`GET /api/baremes`** | Rend l'enveloppe `{elements, total}` comme toute liste, **sans pagination** (quatre types fixes), dans l'ordre où le contrat les énumère. |
-| **`neutre` est calculé** | Depuis `donnees`, jamais stocké. Conséquence assumée : **vider les données remet le barème en neutre** — un barème vidé n'est plus calibré, et le front doit le dire. |
-| **`type`, `libelle`, `neutre` au `PUT`** | **Acceptés et ignorés**, comme `calibration_faite` : l'URL porte le type, `donnees` décide de `neutre`. Le front repose l'objet qu'il vient de lire sans l'amputer. |
+| **`neutre` est calculé** | Depuis **`donnees.points`**, jamais stocké : un barème est neutre tant qu'aucun point n'est posé. Conséquence assumée : **vider les points remet le barème en neutre** — un barème vidé n'est plus calibré, et le front doit le dire. Les autres clés de `donnees` sont des **métadonnées libres** (`version`, `commentaire`…) et n'influencent pas `neutre`. |
+| **Bornes des paramètres** | Tous les coûts et tarifs : **≥ 0**. `surcout_forme_speciale_facteur` : **≥ 1** (c'est un facteur — sous 1, une forme spéciale coûterait moins cher qu'une standard). `marge_standard_pct` : **0 à 500**. `marge_confort_roulage_mm` : **≥ 0**. Hors borne → **422 `payload_invalide`**, le champ est nommé. |
+| **`type`, `libelle`, `neutre` au `PUT`** | **Acceptés et ignorés tant qu'ils sont cohérents** : l'URL porte le type, `donnees` décide de `neutre`. Le front repose l'objet qu'il vient de lire sans l'amputer. ⚠️ Un `type` ou un `libelle` qui **contredit** l'URL répond désormais **422** — `type` est la clé primaire, le renvoyer faux désigne un **autre barème**. `neutre` reste ignoré sans condition : il est réellement calculé. |
 | **`machines_ids`** | Chaque identifiant doit désigner une machine existante, sinon **422**. Liste vide = **toutes** les machines. |
 | ⚠️ **`POST /api/calibration/taux-machine` reste accessible en mode démo** | C'est un `POST`, mais il **n'écrit rien**. Le refuser retirerait à la démonstration publique l'écran qui montre le mieux l'application, sans rien protéger. Le jour où cet endpoint écrira quoi que ce soit, la garde doit revenir. |
+
+### Corrections de l'audit du 16/09/2026 — ce que CC2 doit savoir
+
+Quatre points de la section 6 ont changé **après** l'annonce, à la suite de
+l'audit externe. Le détail et les verdicts sont dans
+`docs/AUDIT-2026-09-16-pr13.md`.
+
+| Ce qui change | Pourquoi |
+| --- | --- |
+| **Les paramètres sont bornés** (tableau ci-dessus) | Avant, `cout_operateur_eur_h: "-50.00"` passait en **200** et `calibration_faite` devenait **vrai**. L'atelier croyait sa calibration faite, et le moteur aurait devisé avec des coûts négatifs. Un devis faux se découvre **chez le client**. |
+| **`neutre` se lit sur `donnees.points`** | Avant, il répondait à « une valeur quelconque de `donnees` est-elle vraie ? » et se trompait **dans les deux sens** : `{"coefficient": 0}` passait pour neutre, et `{"points": [], "version": 1}` passait pour calibré. Une simple métadonnée suffisait à faire croire à une calibration — donc à faire **taire** l'avertissement « scores indicatifs ». |
+| **`type`/`libelle` contradictoires → 422** | Avant, `PUT /api/baremes/echenillage` portant `"type": "effet_banane"` écrivait dans `echenillage`, **en silence**. Une erreur d'état du front y déversait les données du mauvais barème sans qu'aucun signal ne parte. |
+| **`marge_standard_pct` monte à 500** | C'est une garde **anti-faute de frappe** (3000 au lieu de 30), pas une contrainte métier. La marge est sur **coût de revient** et non un taux de marque : à 150 % le coefficient vaut 2,5, ce que le petit tirage pratique. Borner à 100 l'aurait interdit. |
+
+⚠️ **Exploitation — le `downgrade` détruit les calibrations.** La réversibilité
+des migrations est **structurelle** : le schéma revient, les lignes non. Un
+`downgrade` sur une installation en service efface les six référentiels **et les
+quatre barèmes calibrés**. Un référentiel se ressaisit ; une courbe calibrée
+représente un réglage d'atelier que personne ne sait refaire de mémoire.
+**Sauvegarder `%ProgramData%` avant tout `downgrade` chez un client.**
 
 **Ce que CC2 peut coder maintenant** : les six écrans de référentiels et
 l'assistant de calibration, pour de vrai. **Ce qui reste en 404** :

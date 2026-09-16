@@ -55,10 +55,28 @@ class Bareme(Base):
         jour. Ici, la question « ce bareme a-t-il ete calibre ? » n'a qu'une
         seule source : le contenu de `donnees`.
 
-        Consequence assumee : **vider les donnees remet le bareme en neutre.**
-        C'est voulu — un bareme vide n'est plus calibre, et le front doit le
-        dire, sinon il presenterait des scores indicatifs comme des scores
-        regles.
+        ⚠️ **Il se lit sur `points`, et sur rien d'autre** — constat 3 de
+        l'audit du 16/09/2026. La version precedente demandait « une valeur
+        quelconque de `donnees` est-elle vraie ? », et se trompait **dans les
+        deux sens**, ce qui a ete mesure :
+
+        - `{"coefficient": 0}` ou `{"actif_courbe": False}` rendaient
+          `neutre=True` — une valeur *falsy* passait pour une absence ;
+        - `{"points": [], "version": 1}` rendait `neutre=False` — une simple
+          **metadonnee** suffisait a faire croire a une calibration, alors
+          qu'aucun point n'etait pose.
+
+        Le second sens est le pire : le front cesse alors d'avertir que les
+        scores sont indicatifs, et un score indicatif presente comme regle fait
+        prendre une decision de prix sur un chiffre qui ne veut rien dire.
+
+        La cause n'etait pas le calcul, c'etait le **contrat** : on deduisait un
+        booleen metier affiche a l'utilisateur d'une structure que le contrat ne
+        specifiait pas. `donnees` reste libre pour ses metadonnees, mais la
+        **courbe** a desormais une forme nommee : `points`. Une clef libre
+        n'influence plus `neutre` — c'est ce qui rend le calcul previsible.
         """
         donnees = self.donnees or {}
-        return not any(bool(valeur) for valeur in donnees.values())
+        if not isinstance(donnees, dict):
+            return True
+        return not donnees.get("points")

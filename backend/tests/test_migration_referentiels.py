@@ -109,12 +109,22 @@ def test_l_aller_retour_de_migration_se_joue_sur_une_base_vierge(base_neuve):
     assert attendues <= apres_remontee
 
 
-def test_le_schema_revient_a_l_IDENTIQUE_apres_l_aller_retour(base_neuve):
+def test_le_schema_revient_a_l_IDENTIQUE_apres_l_aller_retour_de_la_DERNIERE(base_neuve):
     """Ce que le test precedent n'a jamais prouve.
 
     Il compte des tables ; celui-ci compare le **DDL complet** — index,
     contraintes `UNIQUE`, cles etrangeres, nullabilite. C'est la difference
     entre « les tables sont revenues » et « la base est la meme ».
+
+    ⚠️ **Il ne couvre QUE la derniere migration en date**, parce que `-1` ne
+    defait que celle-la. Son nom le dit depuis le constat 4 de l'audit du
+    16/09/2026 : il ne le disait pas, et c'etait un piege. Ce `-1` **se
+    redirige tout seul** a chaque nouvelle migration — la comparaison change
+    silencieusement de cible et cesse de couvrir la precedente, sans qu'aucun
+    test ne rougisse. C'est exactement ce qui est arrive au lot 2b-2 : ecrit
+    pour les referentiels, ce controle a bascule sur `bareme` a la fusion.
+
+    Le test suivant, lui, ne se redirige pas.
     """
     _alembic(base_neuve, "upgrade", "head")
     avant = _schema(base_neuve)
@@ -129,6 +139,40 @@ def test_le_schema_revient_a_l_IDENTIQUE_apres_l_aller_retour(base_neuve):
     assert any(objet[0] == "index" for objet in avant), avant
     assert any("UNIQUE" in objet[2] for objet in avant), avant
 
+
+def test_le_schema_revient_a_l_IDENTIQUE_apres_l_aller_retour_COMPLET(base_neuve):
+    """L'aller-retour de TOUTES les migrations, de la premiere a la derniere.
+
+    Constat 4 de l'audit du 16/09/2026. Le controle precedent joue `-1` : il ne
+    couvre que la migration du jour, et il change de cible a chaque lot sans
+    rien dire. Celui-ci descend jusqu'a `base` et remonte jusqu'a `head` : sa
+    cible est **l'ensemble du schema**, et elle ne bouge pas.
+
+    Ce qu'il attrape et que l'autre ne peut pas : une migration ANCIENNE dont le
+    `downgrade` casse le jour ou une migration plus recente s'empile dessus.
+    C'est le cas d'une restauration reelle chez un client — on ne defait pas la
+    derniere etape, on revient a une version.
+    """
+    _alembic(base_neuve, "upgrade", "head")
+    avant = _schema(base_neuve)
+
+    _alembic(base_neuve, "downgrade", "base")
+    apres_descente = _tables(base_neuve)
+
+    _alembic(base_neuve, "upgrade", "head")
+    apres = _schema(base_neuve)
+
+    # La descente complete ne doit rien laisser de l'application derriere elle.
+    assert not (TABLES_NOYAU & apres_descente), apres_descente
+    assert not (TABLES_REFERENTIELS & apres_descente), apres_descente
+    assert not (TABLES_DERNIERE_MIGRATION & apres_descente), apres_descente
+
+    assert apres == avant
+
+    # Le controle sait dire 1 : sans ces deux lignes, il comparerait deux listes
+    # vides sans que ca se voie.
+    assert any(objet[0] == "index" for objet in avant), avant
+    assert any("UNIQUE" in objet[2] for objet in avant), avant
 
 def test_le_downgrade_detruit_les_donnees_et_ce_n_est_PAS_un_defaut(base_neuve):
     """La reversibilite constatee est STRUCTURELLE, pas une restauration.
@@ -148,7 +192,12 @@ def test_le_downgrade_detruit_les_donnees_et_ce_n_est_PAS_un_defaut(base_neuve):
     connexion.commit()
     connexion.close()
 
-    _alembic(base_neuve, "downgrade", "-1")
+    # `base`, et surtout PAS `-1` : `-1` ne defait que la derniere migration en
+    # date, et `machine` appartient a celle des referentiels. Ecrit avec `-1`,
+    # ce test est devenu FAUX le jour ou la migration des baremes s'est empilee
+    # — la ligne survivait et il rougissait. C'est le piege du constat 4, et il
+    # s'est declenche ici pour de vrai, au rebase du lot 2b-2.
+    _alembic(base_neuve, "downgrade", "base")
     _alembic(base_neuve, "upgrade", "head")
 
     connexion = sqlite3.connect(base_neuve)

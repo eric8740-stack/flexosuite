@@ -11,7 +11,7 @@ Les refuser obligerait chaque ecran a fabriquer un corps ampute de ce qu'il
 vient de recevoir — c'est exactement le genre de detail qu'un front oublie une
 fois sur deux, et qui produit un 422 incomprehensible.
 """
-from typing import Any
+from typing import Annotated, Any
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -19,6 +19,33 @@ from app.schemas.decimaux import Decimal2, Decimal4
 
 ECRITURE = ConfigDict(extra="forbid")
 LECTURE = ConfigDict(from_attributes=True)
+
+# --- Les BORNES des parametres tarifaires ------------------------------------
+# Constat 1 de l'audit du 16/09/2026, arbitrage d'Eric le meme jour.
+#
+# Avant : rien n'etait borne (sauf `marge_confort_roulage_mm`). `Decimal2` fixe
+# la PRECISION, pas le DOMAINE. Un cout operateur a -50,00 passait en 200 et
+# `calibration_faite` passait a vrai : l'atelier croyait sa calibration faite,
+# et le moteur du lot 2c aurait devise avec des couts negatifs.
+#
+# Les bornes sont posees en types ANNOTES et non en `Field(ge=...)` sur le
+# champ : la contrainte porte alors sur la branche `Decimal` de l'union et non
+# sur `Decimal | None`, ou Pydantic ne saurait pas l'appliquer.
+
+# Un poste peut ne rien couter — zero est legitime, le negatif ne l'est pas.
+CoutPositif2 = Annotated[Decimal2, Field(ge=0)]
+CoutPositif4 = Annotated[Decimal4, Field(ge=0)]
+
+# FACTEUR multiplicatif : sous 1, une forme speciale couterait MOINS cher qu'une
+# forme standard. 1,00 = pas de surcout, c'est la valeur neutre.
+FacteurSurcout = Annotated[Decimal2, Field(ge=1)]
+
+# Garde ANTI-FAUTE DE FRAPPE (3000 au lieu de 30), pas une contrainte metier.
+# La marge est sur COUT DE REVIENT et non un taux de marque : a 150 % le
+# coefficient vaut 2,5, ce que le petit tirage pratique reellement. Borner a 100
+# — la proposition de l'audit — l'aurait interdit.
+MARGE_MAXIMALE_PCT = 500
+MargeBornee = Annotated[Decimal2, Field(ge=0, le=MARGE_MAXIMALE_PCT)]
 
 
 class ParametresCoutsPublic(BaseModel):
@@ -61,16 +88,16 @@ class ParametresCoutsModification(BaseModel):
 
     model_config = ECRITURE
 
-    marge_standard_pct: Decimal2 | None = None
-    cout_exploitation_machine_eur_h: Decimal2 | None = None
-    cout_operateur_eur_h: Decimal2 | None = None
+    marge_standard_pct: MargeBornee | None = None
+    cout_exploitation_machine_eur_h: CoutPositif2 | None = None
+    cout_operateur_eur_h: CoutPositif2 | None = None
     marge_confort_roulage_mm: int | None = Field(default=None, ge=0)
-    cliche_prix_couleur_eur: Decimal2 | None = None
-    outil_base_eur: Decimal2 | None = None
-    outil_par_trace_eur: Decimal2 | None = None
-    surcout_forme_speciale_facteur: Decimal2 | None = None
-    calage_forfait_eur: Decimal2 | None = None
-    finitions_prix_m2_eur: Decimal4 | None = None
+    cliche_prix_couleur_eur: CoutPositif2 | None = None
+    outil_base_eur: CoutPositif2 | None = None
+    outil_par_trace_eur: CoutPositif2 | None = None
+    surcout_forme_speciale_facteur: FacteurSurcout | None = None
+    calage_forfait_eur: CoutPositif2 | None = None
+    finitions_prix_m2_eur: CoutPositif4 | None = None
     # Accepte et IGNORE : il est calcule. Le refuser casserait le geste naturel
     # « je relis l'objet, je modifie un champ, je repose l'objet ».
     calibration_faite: bool | None = None

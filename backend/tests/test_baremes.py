@@ -137,24 +137,61 @@ def test_une_machine_inconnue_est_un_champ_fautif(client_installe):
     assert "machines_ids" in reponse.json()["detail"]
 
 
-def test_le_type_et_neutre_renvoyes_sont_IGNORES(client_installe):
-    """Le front repose l'objet qu'il vient de lire. Refuser `type` et `neutre`
-    l'obligerait a amputer son corps — un detail qu'un front oublie une fois sur
-    deux, et qui produit un 422 incomprehensible. C'est l'URL qui porte le type,
-    et `donnees` qui decide de `neutre`."""
+def test_reposer_l_objet_LU_TEL_QUEL_reste_accepte(client_installe):
+    """Le geste que la souplesse protege : je lis, je modifie, je repose.
+
+    Refuser `type`, `libelle` et `neutre` obligerait le front a amputer son
+    corps — un detail qu'on oublie une fois sur deux, et qui produit un 422
+    incomprehensible. Tant qu'ils sont COHERENTS avec l'URL, ils passent.
+    """
     lu = client_installe.get(CHEMIN).json()["elements"][0]
     repose = dict(lu)
     repose["donnees"] = BAREME_CALIBRE["donnees"]
-    repose["neutre"] = True
+    repose["neutre"] = True  # calcule : ignore sans condition
+
+    reponse = client_installe.put(f"{CHEMIN}/{lu['type']}", json=repose)
+
+    assert reponse.status_code == 200, reponse.text
+    assert reponse.json()["type"] == lu["type"]
+    # `neutre` a bien ete RECALCULE, pas repris du corps.
+    assert reponse.json()["neutre"] is False
+
+
+def test_un_type_qui_CONTREDIT_l_URL_est_refuse(client_installe):
+    """Constat 6 de l'audit du 16/09/2026.
+
+    AVANT : le corps annoncait `effet_banane`, l'URL disait `echenillage`, et
+    c'est `echenillage` qui etait ecrit **en silence**. Une erreur d'etat du
+    front deversait les donnees d'un bareme dans un autre sans aucun signal.
+    `type` est la cle primaire : le renvoyer faux designe un AUTRE objet.
+    """
+    lu = client_installe.get(CHEMIN).json()["elements"][0]
+    repose = dict(lu)
+    repose["donnees"] = BAREME_CALIBRE["donnees"]
     repose["type"] = "effet_banane"
 
     reponse = client_installe.put(f"{CHEMIN}/echenillage", json=repose)
 
-    assert reponse.status_code == 200, reponse.text
-    # L'URL a gagne sur le corps, et `neutre` a ete recalcule.
-    assert reponse.json()["type"] == "echenillage"
-    assert reponse.json()["neutre"] is False
-    assert client_installe.get(CHEMIN).json()["elements"][1]["neutre"] is True
+    assert reponse.status_code == 422, reponse.text
+    assert reponse.json()["code"] == "payload_invalide"
+    assert "type" in reponse.json()["detail"]
+
+    # Et surtout : RIEN n'a ete ecrit, ni dans l'un ni dans l'autre.
+    apres = {b["type"]: b for b in client_installe.get(CHEMIN).json()["elements"]}
+    assert apres["echenillage"]["neutre"] is True
+    assert apres["effet_banane"]["neutre"] is True
+
+
+def test_un_libelle_qui_CONTREDIT_le_bareme_est_refuse(client_installe):
+    lu = client_installe.get(CHEMIN).json()["elements"][0]
+    repose = dict(lu)
+    repose["donnees"] = BAREME_CALIBRE["donnees"]
+    repose["libelle"] = "Un libelle qui n'est pas le sien"
+
+    reponse = client_installe.put(f"{CHEMIN}/{lu['type']}", json=repose)
+
+    assert reponse.status_code == 422, reponse.text
+    assert "libelle" in reponse.json()["detail"]
 
 
 def test_un_champ_inconnu_est_refuse(client_installe):
