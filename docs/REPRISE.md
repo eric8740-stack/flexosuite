@@ -7,13 +7,15 @@
 
 - **Date** : 2026-09-16
 - **Lot en cours** : **lot 2 — données et API**. Sous-lots **2a, 2b-1 et 2b-2
-  mergés** (`main` à `5375f6f`) — le lot 2b est **clos**. **2c** est la suite :
-  optimisation, chiffrage, devis. Lots 0, 1 et 3 livrés.
+  mergés** (`main` à `06ee58b`) — le lot 2b est **clos**. **Le lot 2c est
+  ouvert** : optimisation, chiffrage, devis. Lots 0, 1 et 3 livrés.
 - **Portes G0, G1 et G2** : ✅ **franchies** (détail et critères dans
-  `docs/PLAN.md`).
-- **Contrat d'API** : **v1.2 livrée**, annoncée le 20/08 **avant écriture**.
-  Sections 5 et 6 en ✅. Chaque section porte son **état de livraison** ; le
-  journal des changements ouvre le document, en antéchronologique.
+  `docs/PLAN.md`). La porte du **lot 2** n'est pas franchie : son critère est
+  « un devis complet se crée et se rejoue par l'API », ce que livre le **2c-4**.
+- **Contrat d'API** : **v1.3 annoncée le 16/09/2026, avant écriture** du lot 2c
+  — rien n'en est encore livré. La v1.2 est livrée (sections 5 et 6 en ✅).
+  Chaque section porte son **état de livraison** ; le journal des changements
+  ouvre le document, en antéchronologique.
 - **Qui tient quoi** : **CC1** tient `backend/`, `docs/` et `deploy/`. **CC2**
   tient `frontend/` — lot 3 livré et mergé.
   ⚠️ `docs/CONTRAT-API.md` **ne bouge plus sans annonce**, et le backend est
@@ -324,22 +326,75 @@ de ce qu'elle ne couvre pas.**
 - **221 → 260 tests verts.** Banc de mutations du 2b-2 : **huit jouées, huit
   rouges**, dont la sentinelle du mode démo.
 
+## Lot 2c — optimisation, chiffrage, devis (EN COURS)
+
+Le moteur du lot 1 branché sur l'API. **Aucun montant doré ne bouge** : un écart
+d'un centime se **signale**, il ne se corrige pas.
+
+Découpé en **cinq PR, une à la fois**, chacune partant de `main` **après** le
+merge de la précédente — pas d'empilement, la leçon du 2b est payée (le rebase
+de la #13 sur la #12 a révélé un test devenu faux, que nul rapport n'avait vu).
+
+| PR | Contenu | Audit Codex | État |
+| --- | --- | --- | --- |
+| **2c-0** | contrat **v1.3 annoncé**, docs seulement | relecture d'Eric | **ouverte** |
+| **2c-1** | référentiel `encres`, paramètres géométriques, `GET /api/sens-enroulement` | non | à venir |
+| **2c-2** | optimiseur (moteur pur) + `POST /api/optimisation/configurations` | **oui** | à venir |
+| **2c-3** | `POST /api/devis/apercu` — M1, M2, M3 passent par l'API | **oui** | à venir |
+| **2c-4** | devis persistés, `GET /api/devis/{id}/apercu`, `LIENS` étendu | **oui** | à venir |
+
+### PR 2c-0 — le contrat v1.3, annoncé avant écriture
+
+**Docs seulement, aucun code.** Le backend part en premier, comme à chaque
+version : la table d'état de livraison porte ⏳ sur tout ce que la v1.3 ajoute,
+et ces endpoints répondent **404** jusqu'à leur PR.
+
+**Un seul changement CASSANT** : chaque lot de `POST /api/devis/apercu` porte
+désormais son `format` (obligatoire). Sans lui, la chaîne de pose n'est pas
+rejouable depuis `configuration_id` — un identifiant de configuration ne porte
+ni largeur ni hauteur, et le chiffrage serait calculé sur une pose devinée.
+
+**Cinq points tranchés sans demander à Eric** (signalés, à corriger s'il
+préfère autrement) :
+
+| Point | Choix | Pourquoi |
+| --- | --- | --- |
+| `encre.type` | **chaîne libre unique**, pas une énumération | Un atelier qui travaille le blanc opaque doit pouvoir l'ajouter sans qu'on livre une version. |
+| Transition de statut | **route dédiée `PUT /api/devis/{id}/statut`** | Le contrat dit que le **seul** `PUT` partiel est celui des paramètres. Faire du `PUT` du devis un `PUT` partiel pour ce seul champ ouvrirait la porte à un second. |
+| Transition illégale (`accepte` → `brouillon`…) | **409 `devis_fige`**, le même code que le `PUT`/`DELETE` refusé | C'est la même réalité : le devis est parti, il ne se réécrit plus. Deux codes pour un seul fait obligeraient le front à deux aiguillages. |
+| `{n}p` de `configuration_id` | **nombre de poses en laize** | C'est ce que rend l'exemple du contrat (`cyl12-mach3-3p` avec 3 poses en laize). |
+| `palier_fournisseur_mm = 0` | **refusé (422)** | Division par zéro dans la chaîne de laize. « Pas de palier » s'écrit `1`. |
+
+**Reste ouvert, et il faut Eric** : la **base de comptage de
+`prix_au_mille_eur`**. La spec porte la même réserve (§ 6). Le champ est écrit
+au contrat avec sa formule et sa réserve ; il **n'entre pas dans le jeu doré**
+tant que la base n'est pas tranchée.
+
+### Ce que CC2 doit reprendre côté front pour la v1.3
+
+Faisable **tout de suite**, sans attendre le backend :
+
+1. **Garde sur `cylindre.nb_dents`** — annoncé `null`-able dès la v1.2, le type
+   du front dit encore `number`. C'est le seul point qui casse **déjà**.
+2. **`format` dans le corps de `POST /api/devis/apercu`** — obligatoire par lot.
+3. `contrainte_client` facultatif dans le même corps.
+4. **Ne jamais afficher « 0,00 € »** pour `outil_a_fabriquer.cout_estime_eur` à
+   `null` : la proposition s'affiche **sans prix**, avec son alerte.
+5. Nouveau code d'erreur **`devis_fige` (409)** → proposer la **duplication**,
+   jamais un réessai.
+6. Les trois champs additifs à renvoyer dans les `PUT` complets :
+   `matiere.palier_fournisseur_mm`, `machine.laize_mini_roulable_mm` (et
+   `parametres_couts.bord_lateral_mm`, qui suit le `PUT` partiel).
+7. **7ᵉ écran de référentiel** : les encres, même forme que les six autres.
+
 ## Prochaine étape
 
-**Lot 2c — optimisation, chiffrage, devis**, où le moteur du lot 1 est enfin
-branché sur une API. Les montants dorés restent la référence : aucun ne bouge.
-`est_reference()` s'y étend par le dictionnaire `LIENS`, pas par une deuxième
-fonction.
+**PR 2c-1** — référentiel `encres`, les trois paramètres géométriques,
+`GET /api/sens-enroulement`. Elle part de `main` **après** le merge de la 2c-0.
 
-⚠️ **Aucune des deux PR n'est mergée**, et le merge appartient à Eric. La
-branche `lot/2b-parametres` est **empilée sur `lot/2b-referentiels`** : si 2b-1
-était refusée, 2b-2 demanderait un rebase.
-
-Puis **lot 2c — optimisation, chiffrage, devis**, où le moteur du lot 1 est
-enfin branché sur une API.
-
-Reste aussi au moteur : l'**optimiseur** qui choisit entre configurations. Il a
-besoin des barèmes, donc du lot 2.
+Reste au moteur : l'**optimiseur** qui choisit entre configurations (PR 2c-2).
+`est_reference()` s'étend par le dictionnaire `LIENS` au 2c-4, **pas par une
+deuxième fonction**.
 
 **Ce que CC2 peut débloquer maintenant** : l'écran d'installation, la connexion,
 la redirection au 401 et l'aiguillage sur `installation_faite` /
