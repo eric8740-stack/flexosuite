@@ -79,3 +79,12 @@ développement, variable **retirée** au build → base d'API relative → mono-
   build.
 - Quand le contrat d'API bouge : `docs/CONTRAT-API.md` mis à jour, **backend
   livré en premier**. L'inverse envoie le front en 422.
+- **Tri déterministe explicite** (`order_by`) sur toute liste paginée. Sur
+  SQLite l'ordre naturel coïncide avec les `id` : un test ne verrait pas son
+  absence.
+- **Contraintes en base** plutôt que pré-contrôle applicatif, et **jamais de
+  lecture-puis-écriture**. Les deux courses du lot 2b (`DELETE`,
+  `assurer_baremes`) venaient de là.
+- **Test d'aller-retour contre le contrat d'API** (`docs/CONTRAT-API.md`), pas
+  contre les schémas Pydantic : c'est ce qui détecte un renommage fait des deux
+  côtés.
