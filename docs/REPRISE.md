@@ -6,15 +6,14 @@
 ## En-tête
 
 - **Date** : 2026-09-16
-- **Lot en cours** : **lot 2 — données et API**. Sous-lots **2a mergé** et
-  **2b-1 en PR** (les six référentiels) ; 2b-2 et 2c à venir. Lots 0, 1 et 3
-  livrés.
+- **Lot en cours** : **lot 2 — données et API**. Sous-lot **2a mergé** ;
+  **2b-1 et 2b-2 en PR** (référentiels, puis paramètres / calibration /
+  barèmes) ; 2c à venir. Lots 0, 1 et 3 livrés.
 - **Portes G0, G1 et G2** : ✅ **franchies** (détail et critères dans
   `docs/PLAN.md`).
-- **Contrat d'API** : **v1.2**, annoncée le 20/08 **avant écriture**, dont la
-  **section 5 est livrée** (lot 2b-1). La section 6 reste en ⏳ jusqu'au 2b-2.
-  Chaque section porte son **état de livraison** ; le journal des changements
-  ouvre le document, en antéchronologique.
+- **Contrat d'API** : **v1.2 livrée**, annoncée le 20/08 **avant écriture**.
+  Sections 5 et 6 en ✅. Chaque section porte son **état de livraison** ; le
+  journal des changements ouvre le document, en antéchronologique.
 - **Qui tient quoi** : **CC1** tient `backend/`, `docs/` et `deploy/`. **CC2**
   tient `frontend/` — lot 3 livré et mergé.
   ⚠️ `docs/CONTRAT-API.md` **ne bouge plus sans annonce**, et le backend est
@@ -34,7 +33,7 @@ autre poste obtient par `git pull` s'arrête à la première colonne.
 | #8 | `frontend/.env.example` versionné, exception de chemin dans `.gitignore`, configuration de dev au README | **mergée** — `main` à `c12749a` |
 | #11 | **lot 2a** : modèle mono-tenant, migrations, installation et session | **mergée** — `main` à `5b5532f` |
 | #12 | **lot 2b-1** : les six référentiels, branche `lot/2b-referentiels` | **ouverte — audit Codex traité et CORRIGÉ** (`1f969b4`), en attente du feu vert d'Eric |
-| #13 | **lot 2b-2** : paramètres, calibration, barèmes, branche `lot/2b-parametres` | **ouverte — audit Codex traité, AUCUNE correction appliquée** (`390cfd2`) : 7 constats, dont un arbitrage métier en attente |
+| #13 | **lot 2b-2** : paramètres, calibration, barèmes, branche `lot/2b-parametres` | **ouverte — audit Codex traité et CORRIGÉ**, rebasée sur #12 corrigée. 334 tests verts. |
 
 ### Audits du 16/09/2026 — ce qu'ils ont changé
 
@@ -49,21 +48,29 @@ analyses Claude figées **avant lecture** et les verdicts sont dans `docs/` :
   contrat, avec consigne à CC2 ; le test de migration compare le **DDL complet** ;
   une course sur `DELETE` rend 409 au lieu de 500. **232 tests**, les 8 neufs
   vérifiés **dans les deux sens**.
-- **PR #13 — auditée, non corrigée.** Sept constats, deux ÉLEVÉS : aucune borne
-  sur les paramètres tarifaires (coûts **négatifs** acceptés en 200, avec
-  `calibration_faite=true` — reproduit), et `assurer_baremes()` qui casse sous
-  concurrence (500, reproduit avec deux sessions réelles). Ordre de correction et
-  **la question à trancher** (borne haute de `marge_standard_pct`) en fin de
-  `docs/AUDIT-2026-09-16-pr13.md`.
+- **PR #13 — corrigée.** Sept constats, deux ÉLEVÉS. Les paramètres tarifaires
+  sont **bornés** (coûts ≥ 0, facteur ≥ 1, marge 0–500 — arbitrage d'Eric ; avant,
+  `-50,00` passait en 200 avec `calibration_faite=true`) ; `assurer_baremes()`
+  passe en `ON CONFLICT DO NOTHING` **sans lecture préalable** ; `neutre` se lit
+  sur `donnees.points` ; un `type` qui contredit l'URL répond 422 ; l'aller-retour
+  de migration descend jusqu'à `base`. **334 tests verts**, chaque correction
+  vérifiée **dans les deux sens**.
 
-⚠️ **La #13 est empilée sur un état antérieur aux corrections de la #12.** Fusion
-d'essai jouée : les correctifs survivent intacts, mais `docs/CONTRAT-API.md`
-**entre en conflit**, exactement sur le bloc « CASSANT » destiné à CC2. À
-résoudre **à la main**, en vérifiant que le bloc survit.
+✅ **Rebase fait.** Le conflit sur `docs/CONTRAT-API.md` a été résolu à la main :
+le bloc « ⚠️ CASSANT » de la #12 est conservé **et** les ajouts de la #13 aussi.
+L'affirmation « rien de ce qui avait été annoncé n'a changé de forme », que la
+#13 réintroduisait, n'a **pas** été reprise — c'est exactement ce que l'audit de
+la #12 a démenti.
 
-⚠️ Et un piège mesuré : le test de DDL joue `downgrade -1`. Après fusion de la
-#13, `-1` désigne `bareme` — la comparaison **se redirige toute seule** et cesse
-de couvrir les référentiels, sans qu'aucun test ne rougisse.
+⚠️ **Le piège du `downgrade -1` s'est déclenché pour de vrai au rebase**, et il
+n'était dans aucun rapport : le test de destruction des données, écrit pour les
+référentiels, est devenu faux dès que la migration des barèmes s'est empilée
+(`-1` ne défaisait plus `machine`). La suite post-rebase était à **1 échec /
+270 passés**. Réancré sur `base`. **Ne jamais ancrer un contrôle de migration
+sur « la dernière ».**
+
+⚠️ **Reste ouvert** : les prix de la **section 5** ne sont pas bornés
+(`matiere.prix_m2_eur`…). L'arbitrage du 16/09 portait sur la section 6.
 
 Plus rien en attente d'audit à l'ouverture du lot 2 : le recouvrement de #8 et
 #10 sur `backend/app/config.py` a été résolu au rebase — #8 avait abandonné
@@ -270,16 +277,55 @@ résultat :
 C'est le rappel du lot 1, dans une autre matière : **une suite verte ne dit rien
 de ce qu'elle ne couvre pas.**
 
+## Lot 2b-2 — paramètres, calibration, barèmes
+
+- **Le seul `PUT` partiel du contrat**, et la raison est dans l'usage : ces
+  valeurs s'enregistrent **champ par champ**, au fil de l'assistant. Un champ
+  absent du corps n'est pas mis à `null`, il n'est pas touché — `exclude_unset`,
+  et non un `model_dump()` ordinaire qui rendrait les défauts comme s'ils
+  avaient été envoyés.
+- **`calibration_faite`, `neutre` : calculés, jamais stockés.** Un booléen rangé
+  à côté de la donnée qu'il décrit finit par la contredire — il suffit d'un
+  chemin d'écriture qui oublie de le mettre à jour.
+- **L'assistant de calibration propose, il n'enregistre pas.** Fonction pure,
+  aucun accès base. C'est un `PUT` sur les paramètres qui décide : un assistant
+  qui écrirait tout seul retirerait à l'imprimeur le seul moment qui compte.
+- **Le taux est la somme des lignes arrondies**, pas le total arrondi une fois.
+  Un centime d'écart possible, assumé : le détail existe pour être additionné.
+- **Les quatre barèmes se créent à la volée** au premier accès — ni migration,
+  ni installation. Le lot 2a est déjà sur `main` et peut avoir été installé :
+  une base créée avant ce lot doit retrouver ses barèmes sans intervention.
+- **`Page` a quitté le routeur des référentiels** pour `app/schemas/enveloppe.py`
+  quand les barèmes en ont eu besoin. Une enveloppe recopiée d'un routeur à
+  l'autre finit par différer, et le front écrirait deux lectures de liste.
+
+### Deux choses trouvées en écrivant
+
+> **L'exemple de calibration du contrat se contredisait** : les entrées données
+> (250 000 € sur 10 ans, 1 600 h) donnent 28,13 €/h, pas les 27,50 € de la
+> réponse d'exemple. C'est 240 000 € qui donne 27,50. Corrigé — un exemple faux
+> finit recopié en fixture par le front. Même famille que le « 94 dents ×
+> 3,175 mm = 298,45, pas 300 » relevé à la v1.2.
+
+> **`POST /api/calibration/taux-machine` n'est pas soumis à la garde du mode
+> démo** — c'est un `POST` qui n'écrit rien, et le refuser priverait la démo
+> publique de son meilleur écran. **Décision à valider par Eric** : c'est le
+> seul endroit du projet où une méthode d'écriture échappe à la garde. Un test
+> sentinelle la réclame, et il tombera si on remet la garde.
+
+- **221 → 260 tests verts.** Banc de mutations du 2b-2 : **huit jouées, huit
+  rouges**, dont la sentinelle du mode démo.
+
 ## Prochaine étape
 
-**Lot 2b-2 — paramètres, calibration, barèmes** (section 6 du contrat) :
-`GET`/`PUT` des paramètres de coûts avec `calibration_faite` calculé et un `PUT`
-**partiel**, `POST /api/calibration/taux-machine` en **calcul pur sans
-écriture**, et les quatre barèmes livrés **en mode neutre**.
+**Lot 2c — optimisation, chiffrage, devis**, où le moteur du lot 1 est enfin
+branché sur une API. Les montants dorés restent la référence : aucun ne bouge.
+`est_reference()` s'y étend par le dictionnaire `LIENS`, pas par une deuxième
+fonction.
 
-⚠️ **La PR 2b-1 n'est pas mergée** : elle attend le job `test` vert et le feu
-vert d'Eric. Le 2b-2 part sur une branche séparée et **ne dépend pas de ce
-merge**.
+⚠️ **Aucune des deux PR n'est mergée**, et le merge appartient à Eric. La
+branche `lot/2b-parametres` est **empilée sur `lot/2b-referentiels`** : si 2b-1
+était refusée, 2b-2 demanderait un rebase.
 
 Puis **lot 2c — optimisation, chiffrage, devis**, où le moteur du lot 1 est
 enfin branché sur une API.

@@ -87,9 +87,13 @@ Découpé en trois sous-lots, **backend livré avant le front** à chaque fois :
       déconnexion **révoquée en base**, `GET /api/contexte` complet, contrôle
       d'origine sur les écritures, format d'erreur `{code, detail}` partout.
       `reinitialiser_admin` implémenté et testé sur son comportement réel.
-- [ ] **2b — référentiels et paramètres.** ⚠️ **Changement de contrat** : le JSON
-      exact de chaque ressource n'y est pas encore. À annoncer à CC2 **avant
-      écriture**, dans une PR de documentation séparée.
+- [x] **2b — référentiels et paramètres.** Contrat v1.2 **annoncé avant
+      écriture** (PR de documentation séparée, comme prévu), puis livré en deux
+      PR : **2b-1** les six référentiels (section 5), **2b-2** paramètres,
+      calibration et barèmes (section 6). Routeur CRUD générique instancié six
+      fois ; `est_reference()` en un point unique que le lot 2c étendra.
+      ⚠️ Les deux PR attendent le feu vert d'Eric — la porte n'est pas franchie
+      tant qu'elles ne sont pas mergées.
 - [ ] **2c — optimisation, chiffrage, devis.** Le moteur du lot 1 branché sur
       l'API. Les montants dorés restent la référence : aucun ne bouge.
 

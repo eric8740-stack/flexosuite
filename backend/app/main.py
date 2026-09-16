@@ -23,7 +23,15 @@ from app.config import CORS_ORIGINES, DEMO_MODE, STATIC_DIR
 from app.database import get_db
 from app.dependances import METHODES_ECRITURE, installation_faite, utilisateur_courant
 from app.models import ParametresCouts, Utilisateur
-from app.routers import auth, health, installation, referentiels
+from app.routers import (
+    auth,
+    baremes,
+    calibration,
+    health,
+    installation,
+    parametres,
+    referentiels,
+)
 from app.schemas.noyau import Contexte, UtilisateurPublic
 
 app = FastAPI(title="FlexoSuite", version="0.2.0")
@@ -95,6 +103,11 @@ app.include_router(auth.router, prefix="/api")
 # Les gardes sont portees par le routeur lui-meme, pas ici.
 for _routeur_referentiel in referentiels.routeurs:
     app.include_router(_routeur_referentiel, prefix="/api")
+
+# Section 6 : parametres de couts, assistant de calibration, baremes.
+app.include_router(parametres.router, prefix="/api")
+app.include_router(calibration.router, prefix="/api")
+app.include_router(baremes.router, prefix="/api")
 
 
 @app.get("/api/contexte", response_model=Contexte)

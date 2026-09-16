@@ -8,6 +8,11 @@ importe ce paquet, et c'est `Base.metadata` qui sert de reference a
 l'autogeneration. Un modele oublie ne produit pas d'erreur — il produit une
 migration qui ne cree pas sa table.
 """
+from app.models.baremes import (  # noqa: F401
+    DONNEES_NEUTRES,
+    TYPES_BAREMES,
+    Bareme,
+)
 from app.models.noyau import (  # noqa: F401
     CHAMPS_CALIBRATION,
     ParametresCouts,
@@ -26,6 +31,9 @@ from app.models.referentiels import (  # noqa: F401
 
 __all__ = [
     "CHAMPS_CALIBRATION",
+    "DONNEES_NEUTRES",
+    "TYPES_BAREMES",
+    "Bareme",
     "Client",
     "Cylindre",
     "Machine",
