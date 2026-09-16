@@ -6,9 +6,9 @@
 ## En-tête
 
 - **Date** : 2026-09-16
-- **Lot en cours** : **lot 2 — données et API**. Sous-lot **2a mergé** ;
-  **2b-1 et 2b-2 en PR** (référentiels, puis paramètres / calibration /
-  barèmes) ; 2c à venir. Lots 0, 1 et 3 livrés.
+- **Lot en cours** : **lot 2 — données et API**. Sous-lots **2a, 2b-1 et 2b-2
+  mergés** (`main` à `5375f6f`) — le lot 2b est **clos**. **2c** est la suite :
+  optimisation, chiffrage, devis. Lots 0, 1 et 3 livrés.
 - **Portes G0, G1 et G2** : ✅ **franchies** (détail et critères dans
   `docs/PLAN.md`).
 - **Contrat d'API** : **v1.2 livrée**, annoncée le 20/08 **avant écriture**.
@@ -32,8 +32,8 @@ autre poste obtient par `git pull` s'arrête à la première colonne.
 | #10 | contrôles du front câblés dans le check requis, exemple CORS à un seul hôte, CI en Node 24 | **mergée** — `main` à `0c1622a` |
 | #8 | `frontend/.env.example` versionné, exception de chemin dans `.gitignore`, configuration de dev au README | **mergée** — `main` à `c12749a` |
 | #11 | **lot 2a** : modèle mono-tenant, migrations, installation et session | **mergée** — `main` à `5b5532f` |
-| #12 | **lot 2b-1** : les six référentiels, branche `lot/2b-referentiels` | **ouverte — audit Codex traité et CORRIGÉ** (`1f969b4`), en attente du feu vert d'Eric |
-| #13 | **lot 2b-2** : paramètres, calibration, barèmes, branche `lot/2b-parametres` | **ouverte — audit Codex traité et CORRIGÉ**, rebasée sur #12 corrigée. 334 tests verts. |
+| #12 | **lot 2b-1** : les six référentiels | **mergée** le 16/09 — audit Codex traité et corrigé |
+| #13 | **lot 2b-2** : paramètres, calibration, barèmes | **mergée** le 16/09 — audit Codex traité et corrigé, rebasée sur `main`. `main` à **`5375f6f`**, CI verte. |
 
 ### Audits du 16/09/2026 — ce qu'ils ont changé
 
@@ -56,7 +56,8 @@ analyses Claude figées **avant lecture** et les verdicts sont dans `docs/` :
   de migration descend jusqu'à `base`. **334 tests verts**, chaque correction
   vérifiée **dans les deux sens**.
 
-✅ **Rebase fait.** Le conflit sur `docs/CONTRAT-API.md` a été résolu à la main :
+✅ **Tout est mergé, `main` est vert.** Le conflit sur `docs/CONTRAT-API.md` a
+été résolu à la main lors du rebase :
 le bloc « ⚠️ CASSANT » de la #12 est conservé **et** les ajouts de la #13 aussi.
 L'affirmation « rien de ce qui avait été annoncé n'a changé de forme », que la
 #13 réintroduisait, n'a **pas** été reprise — c'est exactement ce que l'audit de
@@ -69,8 +70,15 @@ référentiels, est devenu faux dès que la migration des barèmes s'est empilé
 270 passés**. Réancré sur `base`. **Ne jamais ancrer un contrôle de migration
 sur « la dernière ».**
 
-⚠️ **Reste ouvert** : les prix de la **section 5** ne sont pas bornés
-(`matiere.prix_m2_eur`…). L'arbitrage du 16/09 portait sur la section 6.
+✅ **Bornes de la section 5 — il n'y avait rien à corriger.** Annoncé comme
+« reste ouvert » par erreur : la mesure a montré que les 23 champs numériques
+étaient **déjà bornés** depuis leur écriture. Seules les deux clés étrangères
+n'étaient pas bornées au niveau du schéma, mais l'API rendait déjà 422 en
+nommant le champ — comportement observable correct. Les bornes sont désormais
+**verrouillées par 27 tests** (vérifiés : retirer trois bornes en fait rougir
+quatre) et **écrites au contrat**.
+
+**Total au 16/09 : 361 tests verts, 5 ignorés.**
 
 Plus rien en attente d'audit à l'ouverture du lot 2 : le recouvrement de #8 et
 #10 sur `backend/app/config.py` a été résolu au rebase — #8 avait abandonné
