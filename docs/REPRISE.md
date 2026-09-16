@@ -33,7 +33,37 @@ autre poste obtient par `git pull` s'arrête à la première colonne.
 | #10 | contrôles du front câblés dans le check requis, exemple CORS à un seul hôte, CI en Node 24 | **mergée** — `main` à `0c1622a` |
 | #8 | `frontend/.env.example` versionné, exception de chemin dans `.gitignore`, configuration de dev au README | **mergée** — `main` à `c12749a` |
 | #11 | **lot 2a** : modèle mono-tenant, migrations, installation et session | **mergée** — `main` à `5b5532f` |
-| #12 | **lot 2b-1** : les six référentiels, branche `lot/2b-referentiels` | **ouverte — en attente du job `test` et du feu vert d'Eric** |
+| #12 | **lot 2b-1** : les six référentiels, branche `lot/2b-referentiels` | **ouverte — audit Codex traité et CORRIGÉ** (`1f969b4`), en attente du feu vert d'Eric |
+| #13 | **lot 2b-2** : paramètres, calibration, barèmes, branche `lot/2b-parametres` | **ouverte — audit Codex traité, AUCUNE correction appliquée** (`390cfd2`) : 7 constats, dont un arbitrage métier en attente |
+
+### Audits du 16/09/2026 — ce qu'ils ont changé
+
+Les deux PR du lot 2b ont été auditées par Codex le même jour. Les rapports, les
+analyses Claude figées **avant lecture** et les verdicts sont dans `docs/` :
+`AUDIT-2026-09-16-pr12.md` et `AUDIT-2026-09-16-pr13.md`.
+
+- **PR #12 — corrigée.** Quatre constats traités, `1f969b4`. Le `PUT` des
+  référentiels exige désormais **tous** les champs (il réinitialisait en silence
+  ceux qui avaient un défaut — un `PUT` sans `actif` réactivait un élément
+  désactivé) ; la nullabilité de quatre champs est reclassée **CASSANTE** au
+  contrat, avec consigne à CC2 ; le test de migration compare le **DDL complet** ;
+  une course sur `DELETE` rend 409 au lieu de 500. **232 tests**, les 8 neufs
+  vérifiés **dans les deux sens**.
+- **PR #13 — auditée, non corrigée.** Sept constats, deux ÉLEVÉS : aucune borne
+  sur les paramètres tarifaires (coûts **négatifs** acceptés en 200, avec
+  `calibration_faite=true` — reproduit), et `assurer_baremes()` qui casse sous
+  concurrence (500, reproduit avec deux sessions réelles). Ordre de correction et
+  **la question à trancher** (borne haute de `marge_standard_pct`) en fin de
+  `docs/AUDIT-2026-09-16-pr13.md`.
+
+⚠️ **La #13 est empilée sur un état antérieur aux corrections de la #12.** Fusion
+d'essai jouée : les correctifs survivent intacts, mais `docs/CONTRAT-API.md`
+**entre en conflit**, exactement sur le bloc « CASSANT » destiné à CC2. À
+résoudre **à la main**, en vérifiant que le bloc survit.
+
+⚠️ Et un piège mesuré : le test de DDL joue `downgrade -1`. Après fusion de la
+#13, `-1` désigne `bareme` — la comparaison **se redirige toute seule** et cesse
+de couvrir les référentiels, sans qu'aucun test ne rougisse.
 
 Plus rien en attente d'audit à l'ouverture du lot 2 : le recouvrement de #8 et
 #10 sur `backend/app/config.py` a été résolu au rebase — #8 avait abandonné
