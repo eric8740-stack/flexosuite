@@ -30,10 +30,14 @@ def rendre_type(type_, autogen_context):
     qu'on est libre de renommer demain. Une migration doit rester lisible et
     executable telle quelle, des annees plus tard.
 
-    `DecimalTexte` s'appuie sur `String` : le DDL produit est identique.
+    `DecimalTexte` s'appuie sur `String` et `JsonTexte` sur `Text` : le DDL
+    produit est identique dans les deux cas.
     """
-    if type_.__class__.__name__ == "DecimalTexte":
+    nom = type_.__class__.__name__
+    if nom == "DecimalTexte":
         return "sa.String(length=%d)" % type_.length if type_.length else "sa.String()"
+    if nom == "JsonTexte":
+        return "sa.Text()"
     return False
 
 

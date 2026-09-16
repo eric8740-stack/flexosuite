@@ -34,6 +34,9 @@ ORIGINE_REFUSEE = "origine_refusee"
 INTROUVABLE = "introuvable"
 PAYLOAD_INVALIDE = "payload_invalide"
 REGLE_METIER = "regle_metier"
+# v1.2 — les deux codes des referentiels.
+REFERENCE_UTILISEE = "reference_utilisee"
+DEJA_EXISTANT = "deja_existant"
 
 
 class ErreurApi(HTTPException):
@@ -100,6 +103,46 @@ def introuvable(quoi: str = "Cet element") -> ErreurApi:
 
 def regle_metier(detail: str) -> ErreurApi:
     return ErreurApi(status.HTTP_400_BAD_REQUEST, REGLE_METIER, detail)
+
+
+def payload_invalide(champs: str) -> ErreurApi:
+    """Meme forme que le 422 leve par le framework — exprès.
+
+    Le gestionnaire de validation plus bas ecrit « Champs invalides : x. ». Un
+    refus decide par l'application (un identifiant qui ne designe rien) doit se
+    presenter de la MEME facon, sinon le front apprend a afficher deux formats
+    pour un seul code d'erreur.
+    """
+    return ErreurApi(HTTP_422, PAYLOAD_INVALIDE, f"Champs invalides : {champs}.")
+
+
+def reference_utilisee(designation: str, par: str) -> ErreurApi:
+    """409 — la suppression est refusee parce que l'element sert ailleurs.
+
+    Le `detail` **propose la sortie** : desactiver. Une erreur qui dit seulement
+    « non » laisse le deviseur sans geste suivant, et il finit par contourner —
+    en renommant l'element, par exemple, ce qui abime les devis passes au lieu
+    de les effacer franchement.
+    """
+    return ErreurApi(
+        status.HTTP_409_CONFLICT,
+        REFERENCE_UTILISEE,
+        f"Suppression refusee : {par} utilise encore {designation}. "
+        "Desactivez l'element plutot que de le supprimer.",
+    )
+
+
+def deja_existant(cle: str) -> ErreurApi:
+    """409 — la cle est deja prise.
+
+    `cle` nomme ce qui est en double du point de vue de l'utilisateur (« ce
+    nom », « ce repere sur cette machine »), pas la colonne SQL.
+    """
+    return ErreurApi(
+        status.HTTP_409_CONFLICT,
+        DEJA_EXISTANT,
+        f"Un enregistrement existe deja avec {cle}.",
+    )
 
 
 # --- Branchement sur l'application ------------------------------------------

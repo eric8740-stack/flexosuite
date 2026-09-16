@@ -23,7 +23,7 @@ from app.config import CORS_ORIGINES, DEMO_MODE, STATIC_DIR
 from app.database import get_db
 from app.dependances import METHODES_ECRITURE, installation_faite, utilisateur_courant
 from app.models import ParametresCouts, Utilisateur
-from app.routers import auth, health, installation
+from app.routers import auth, health, installation, referentiels
 from app.schemas.noyau import Contexte, UtilisateurPublic
 
 app = FastAPI(title="FlexoSuite", version="0.2.0")
@@ -90,6 +90,11 @@ def _origines_acceptees(requete: Request) -> set[str]:
 app.include_router(health.router, prefix="/api")
 app.include_router(installation.router, prefix="/api")
 app.include_router(auth.router, prefix="/api")
+
+# Les six referentiels de la section 5 : un seul routeur, instancie six fois.
+# Les gardes sont portees par le routeur lui-meme, pas ici.
+for _routeur_referentiel in referentiels.routeurs:
+    app.include_router(_routeur_referentiel, prefix="/api")
 
 
 @app.get("/api/contexte", response_model=Contexte)

@@ -21,7 +21,7 @@
 | 2. Optimisation de pose | ⏳ spécifié, **pas encore livré** |
 | 3. Chiffrage | ⏳ spécifié, **pas encore livré** — le moteur existe et est testé, l'endpoint non |
 | 4. Devis | ⏳ spécifié, **pas encore livré** |
-| 5. Référentiels | ⏳ **spécifié en v1.2**, pas encore livré — lot 2b |
+| 5. Référentiels | ✅ **livré** — lot 2b-1, les six ressources |
 | 6. Paramètres et calibration | ⏳ **spécifié en v1.2**, pas encore livré — lot 2b |
 
 > ⚠️ **Un état de livraison faux est pire qu'une absence d'état** : il envoie le
@@ -29,6 +29,28 @@
 > mise à jour **dans la PR qui livre**, jamais après coup.
 
 ## 📣 Journal des changements — à lire avant de coder
+
+### v1.2 — section 5 **livrée** le 16/09/2026 (lot 2b-1)
+
+> **Le backend est parti en premier**, comme annoncé. Les six référentiels
+> existent : ils ne répondent plus 404. Rien de ce qui avait été annoncé n'a
+> changé de forme — ce qui suit est la liste des **précisions**, c'est-à-dire
+> des points que l'annonce n'avait pas tranchés et qu'il a bien fallu trancher
+> pour écrire le code. Elles sont détaillées en tête de la section 5.
+
+| Point | Précision |
+| --- | --- |
+| Clés d'unicité | Écrites noir sur blanc, section 5. `cylindre` est unique sur **(machine_id, repere_machine)**, pas sur le repère seul. |
+| `PUT /{id}` | **Remplacement complet**, pas partiel. Le `PUT` partiel est celui des paramètres de coûts (section 6), et lui seul. |
+| Clé étrangère inconnue | **422 `payload_invalide`**, pas 404 — le front surligne le champ. |
+| Champ inconnu dans le corps | **422**. Ni ignoré, ni rangé. |
+| Ordre des listes | Identifiant croissant. |
+| Décimaux | Normalisés **à l'écriture** (2 décimales, 4 pour `prix_m2_eur`) : ce qui est relu est exactement ce qui a été rangé. |
+| Champs facultatifs | `cylindre.date_inventaire` et `client.contact` / `email` / `telephone` acceptent `null`. `email` est une **chaîne libre**, son format n'est pas validé. |
+
+**Ce que CC2 peut coder maintenant** : les six écrans de référentiels, pour de
+vrai. **Ce qui reste en 404** : optimisation, chiffrage, devis, et la section 6
+(paramètres, calibration, barèmes) — elle arrive au lot 2b-2.
 
 ### v1.2 — annoncée le 20/08/2026, **avant écriture** du lot 2b
 
@@ -485,7 +507,7 @@ Même réponse, pour un devis déjà enregistré.
 Le devis porte un **numéro attribué par le serveur** — le front ne le fabrique
 jamais. Statuts : `brouillon`, `envoye`, `accepte`, `refuse`.
 
-## 5. Référentiels — ⏳ pas encore livré (spécifié en v1.2)
+## 5. Référentiels — ✅ livré (lot 2b-1)
 
 Même forme pour tous : `GET` liste · `GET /{id}` · `POST` · `PUT /{id}` ·
 `DELETE /{id}`.
@@ -499,6 +521,25 @@ Même forme pour tous : `GET` liste · `GET /{id}` · `POST` · `PUT /{id}` ·
 Paramètres `page` (1 par défaut) et `taille` (25 par défaut, 200 au plus). Une
 seule forme de liste à écrire côté front, et un référentiel qui grossit ne
 casse rien le jour où il dépasse un écran.
+
+Au-delà de 200 : **422 `payload_invalide`**. `page` commence à 1 ; `page=0` est
+refusé de la même façon. Les listes sont rendues par **identifiant croissant**.
+
+### Précisions de livraison — ce que l'annonce n'avait pas tranché
+
+> Aucune de ces lignes ne change une forme annoncée : ce sont des points que
+> l'écriture du lot 2b-1 a obligé à trancher, et qui sont désormais fixés.
+
+| Point | Ce qui a été tranché |
+| --- | --- |
+| **Clés d'unicité** | `machine.nom` · `matiere.nom` · `outil.reference` · `client.nom` · `option.code` · `cylindre` **(machine_id, repere_machine)**. Un doublon répond **409 `deja_existant`**, et le `detail` nomme la clé. ⚠️ Le repère d'un cylindre est **gravé sur sa machine** : deux presses ont chacune leur « A3 ». Une unicité posée sur le seul repère casserait un parc réel dès la deuxième presse. |
+| **`PUT /{id}` remplace TOUT** | Le corps entier est attendu, comme au `POST`. Un référentiel se saisit dans un formulaire entier ; accepter un corps partiel ferait disparaître en silence les champs que le front aurait oublié de renvoyer. Le seul `PUT` partiel du contrat est celui des paramètres de coûts (section 6), parce qu'on y enregistre champ par champ. |
+| **Clé étrangère inconnue → 422** | `cylindre.machine_id` ou `outil.cylindre_id` qui ne désigne rien répond **422 `payload_invalide`**, et le `detail` nomme le champ. Pas 404 : le contrat s'en sert déjà pour « cet endpoint n'est pas encore livré », et un front qui reçoit 404 sur un `POST` ne saurait pas s'il doit surligner un champ ou renoncer à l'écran. |
+| **Champ inconnu → 422** | Un champ que le contrat ne porte pas est refusé, jamais ignoré. |
+| **`DELETE` refusé, aujourd'hui** | **409 `reference_utilisee`** sur une machine portée par un cylindre, et sur un cylindre porté par un outil. Les devis s'y ajouteront au **lot 2c**, au même point du code. Le `detail` propose la désactivation. |
+| **Décimaux normalisés à l'écriture** | Deux décimales, **quatre** pour `prix_m2_eur`. Ce qui est relu est exactement ce qui a été rangé : l'API ne dit pas deux choses différentes selon le chemin emprunté. |
+| **Champs acceptant `null`** | `cylindre.nb_dents` (déjà annoncé), `cylindre.date_inventaire`, et `client.contact` / `email` / `telephone`. ⚠️ **`email` est une chaîne libre** : son format n'est pas validé — le carnet d'adresses d'un atelier contient des choses comme « voir le service achats ». |
+| **Valeurs par défaut** | `actif` à `true` ; `forme_speciale` et `silhouette_automatique` à `false` ; `modules` et `modules_requis` à `[]` ; `groupes_couleurs_requis` à `0`. |
 
 > ### `actif`, et pourquoi on ne supprime pas
 >

@@ -15,9 +15,23 @@ from app.models.noyau import (  # noqa: F401
     Utilisateur,
     maintenant,
 )
+from app.models.referentiels import (  # noqa: F401
+    Client,
+    Cylindre,
+    Machine,
+    Matiere,
+    Option,
+    Outil,
+)
 
 __all__ = [
     "CHAMPS_CALIBRATION",
+    "Client",
+    "Cylindre",
+    "Machine",
+    "Matiere",
+    "Option",
+    "Outil",
     "ParametresCouts",
     "SessionUtilisateur",
     "Utilisateur",
