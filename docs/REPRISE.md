@@ -6,15 +6,14 @@
 ## En-tête
 
 - **Date** : 2026-09-16
-- **Lot en cours** : **lot 2 — données et API**. Sous-lots **2a mergé** et
-  **2b-1 en PR** (les six référentiels) ; 2b-2 et 2c à venir. Lots 0, 1 et 3
-  livrés.
+- **Lot en cours** : **lot 2 — données et API**. Sous-lot **2a mergé** ;
+  **2b-1 et 2b-2 en PR** (référentiels, puis paramètres / calibration /
+  barèmes) ; 2c à venir. Lots 0, 1 et 3 livrés.
 - **Portes G0, G1 et G2** : ✅ **franchies** (détail et critères dans
   `docs/PLAN.md`).
-- **Contrat d'API** : **v1.2**, annoncée le 20/08 **avant écriture**, dont la
-  **section 5 est livrée** (lot 2b-1). La section 6 reste en ⏳ jusqu'au 2b-2.
-  Chaque section porte son **état de livraison** ; le journal des changements
-  ouvre le document, en antéchronologique.
+- **Contrat d'API** : **v1.2 livrée**, annoncée le 20/08 **avant écriture**.
+  Sections 5 et 6 en ✅. Chaque section porte son **état de livraison** ; le
+  journal des changements ouvre le document, en antéchronologique.
 - **Qui tient quoi** : **CC1** tient `backend/`, `docs/` et `deploy/`. **CC2**
   tient `frontend/` — lot 3 livré et mergé.
   ⚠️ `docs/CONTRAT-API.md` **ne bouge plus sans annonce**, et le backend est
@@ -270,16 +269,55 @@ résultat :
 C'est le rappel du lot 1, dans une autre matière : **une suite verte ne dit rien
 de ce qu'elle ne couvre pas.**
 
+## Lot 2b-2 — paramètres, calibration, barèmes
+
+- **Le seul `PUT` partiel du contrat**, et la raison est dans l'usage : ces
+  valeurs s'enregistrent **champ par champ**, au fil de l'assistant. Un champ
+  absent du corps n'est pas mis à `null`, il n'est pas touché — `exclude_unset`,
+  et non un `model_dump()` ordinaire qui rendrait les défauts comme s'ils
+  avaient été envoyés.
+- **`calibration_faite`, `neutre` : calculés, jamais stockés.** Un booléen rangé
+  à côté de la donnée qu'il décrit finit par la contredire — il suffit d'un
+  chemin d'écriture qui oublie de le mettre à jour.
+- **L'assistant de calibration propose, il n'enregistre pas.** Fonction pure,
+  aucun accès base. C'est un `PUT` sur les paramètres qui décide : un assistant
+  qui écrirait tout seul retirerait à l'imprimeur le seul moment qui compte.
+- **Le taux est la somme des lignes arrondies**, pas le total arrondi une fois.
+  Un centime d'écart possible, assumé : le détail existe pour être additionné.
+- **Les quatre barèmes se créent à la volée** au premier accès — ni migration,
+  ni installation. Le lot 2a est déjà sur `main` et peut avoir été installé :
+  une base créée avant ce lot doit retrouver ses barèmes sans intervention.
+- **`Page` a quitté le routeur des référentiels** pour `app/schemas/enveloppe.py`
+  quand les barèmes en ont eu besoin. Une enveloppe recopiée d'un routeur à
+  l'autre finit par différer, et le front écrirait deux lectures de liste.
+
+### Deux choses trouvées en écrivant
+
+> **L'exemple de calibration du contrat se contredisait** : les entrées données
+> (250 000 € sur 10 ans, 1 600 h) donnent 28,13 €/h, pas les 27,50 € de la
+> réponse d'exemple. C'est 240 000 € qui donne 27,50. Corrigé — un exemple faux
+> finit recopié en fixture par le front. Même famille que le « 94 dents ×
+> 3,175 mm = 298,45, pas 300 » relevé à la v1.2.
+
+> **`POST /api/calibration/taux-machine` n'est pas soumis à la garde du mode
+> démo** — c'est un `POST` qui n'écrit rien, et le refuser priverait la démo
+> publique de son meilleur écran. **Décision à valider par Eric** : c'est le
+> seul endroit du projet où une méthode d'écriture échappe à la garde. Un test
+> sentinelle la réclame, et il tombera si on remet la garde.
+
+- **221 → 260 tests verts.** Banc de mutations du 2b-2 : **huit jouées, huit
+  rouges**, dont la sentinelle du mode démo.
+
 ## Prochaine étape
 
-**Lot 2b-2 — paramètres, calibration, barèmes** (section 6 du contrat) :
-`GET`/`PUT` des paramètres de coûts avec `calibration_faite` calculé et un `PUT`
-**partiel**, `POST /api/calibration/taux-machine` en **calcul pur sans
-écriture**, et les quatre barèmes livrés **en mode neutre**.
+**Lot 2c — optimisation, chiffrage, devis**, où le moteur du lot 1 est enfin
+branché sur une API. Les montants dorés restent la référence : aucun ne bouge.
+`est_reference()` s'y étend par le dictionnaire `LIENS`, pas par une deuxième
+fonction.
 
-⚠️ **La PR 2b-1 n'est pas mergée** : elle attend le job `test` vert et le feu
-vert d'Eric. Le 2b-2 part sur une branche séparée et **ne dépend pas de ce
-merge**.
+⚠️ **Aucune des deux PR n'est mergée**, et le merge appartient à Eric. La
+branche `lot/2b-parametres` est **empilée sur `lot/2b-referentiels`** : si 2b-1
+était refusée, 2b-2 demanderait un rebase.
 
 Puis **lot 2c — optimisation, chiffrage, devis**, où le moteur du lot 1 est
 enfin branché sur une API.

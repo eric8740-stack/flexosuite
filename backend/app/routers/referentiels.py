@@ -16,7 +16,6 @@ l'ordre voulu : session (401) puis mode demo (403). Une garde recopiee cinq fois
 sur six est un trou, et un trou ne se voit pas a la relecture.
 """
 from dataclasses import dataclass
-from typing import Generic, TypeVar
 
 from fastapi import APIRouter, Depends, Query, Response, status
 from pydantic import BaseModel
@@ -29,25 +28,13 @@ from app.database import get_db
 from app.dependances import exiger_session, interdire_ecriture_demo
 from app.models import Client, Cylindre, Machine, Matiere, Option, Outil
 from app.schemas import referentiels as sch
+from app.schemas.enveloppe import Page
 from app.services.referentiels import est_reference
 
 # Les bornes du contrat. Au-dela de la taille maxi : 422 `payload_invalide`.
 PAGE_PAR_DEFAUT = 1
 TAILLE_PAR_DEFAUT = 25
 TAILLE_MAXI = 200
-
-T = TypeVar("T")
-
-
-class Page(BaseModel, Generic[T]):
-    """L'enveloppe de liste, la MEME partout — devis compris, au lot 2c.
-
-    Une seule forme de liste a ecrire cote front, et un referentiel qui grossit
-    ne casse rien le jour ou il depasse un ecran.
-    """
-
-    elements: list[T]
-    total: int
 
 
 @dataclass(frozen=True)

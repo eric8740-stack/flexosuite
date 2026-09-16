@@ -22,7 +22,7 @@
 | 3. Chiffrage | ⏳ spécifié, **pas encore livré** — le moteur existe et est testé, l'endpoint non |
 | 4. Devis | ⏳ spécifié, **pas encore livré** |
 | 5. Référentiels | ✅ **livré** — lot 2b-1, les six ressources |
-| 6. Paramètres et calibration | ⏳ **spécifié en v1.2**, pas encore livré — lot 2b |
+| 6. Paramètres et calibration | ✅ **livré** — lot 2b-2 |
 
 > ⚠️ **Un état de livraison faux est pire qu'une absence d'état** : il envoie le
 > front coder contre du vide en croyant l'endpoint disponible. Cette table est
@@ -30,10 +30,10 @@
 
 ## 📣 Journal des changements — à lire avant de coder
 
-### v1.2 — section 5 **livrée** le 16/09/2026 (lot 2b-1)
+### v1.2 — **livrée avec le lot 2b**, le 16/09/2026
 
-> **Le backend est parti en premier**, comme annoncé. Les six référentiels
-> existent : ils ne répondent plus 404.
+> **Le backend est parti en premier**, comme annoncé. Les sections 5 et 6
+> existent : elles ne répondent plus 404.
 >
 > ⚠️ **Un changement CASSANT s'est glissé dans cette livraison, et il avait
 > d'abord été classé « précision » à tort.** Il est isolé ci-dessous, avant les
@@ -67,7 +67,9 @@ une garde avant tout affichage ou toute opération de chaîne.
 ### Les vraies précisions
 
 Ce qui suit n'était pas tranché par l'annonce et a dû l'être pour écrire le
-code. Détail en tête de la section 5.
+code. Détail en tête de chaque section.
+
+**Section 5 — référentiels** (lot 2b-1) :
 
 | Point | Précision |
 | --- | --- |
@@ -79,9 +81,24 @@ code. Détail en tête de la section 5.
 | Décimaux | Normalisés **à l'écriture** (2 décimales, 4 pour `prix_m2_eur`) : ce qui est relu est exactement ce qui a été rangé. |
 | `email` non validé | C'est une **chaîne libre** : son format n'est pas vérifié — un carnet d'atelier contient des choses comme « voir le service achats ». (La nullabilité, elle, est traitée au-dessus : elle est cassante.) |
 
-**Ce que CC2 peut coder maintenant** : les six écrans de référentiels, pour de
-vrai. **Ce qui reste en 404** : optimisation, chiffrage, devis, et la section 6
-(paramètres, calibration, barèmes) — elle arrive au lot 2b-2.
+**Section 6 — paramètres, calibration, barèmes** (lot 2b-2) :
+
+| Point | Précision |
+| --- | --- |
+| **Le taux est la somme des lignes arrondies** | Et non le total arrondi une fois. Écart d'un centime possible, **voulu** : le contrat rend le détail « parce qu'un chiffre qu'on ne sait pas justifier ne sera pas adopté ». Un imprimeur qui additionne les trois lignes affichées doit retomber sur le taux affiché. |
+| ⚠️ **L'exemple de la v1.2 se contredisait** | Les entrées données (250 000 € sur 10 ans, 1 600 h) donnent **28,13 €/h**, pas les 27,50 € de la réponse d'exemple. C'est **240 000 €** qui donne 27,50. L'exemple d'entrée a été corrigé — un exemple faux finit recopié en fixture par le front. |
+| **`marge_standard_pct: null`** | **422**. Ne pas envoyer le champ est permis (le `PUT` est partiel) ; l'envoyer vide, non. |
+| **Précision des montants** | Deux décimales, sauf `finitions_prix_m2_eur` qui en porte **quatre** (c'est un prix au m², comme `matiere.prix_m2_eur`). `marge_confort_roulage_mm` est un **entier**, pas une chaîne : c'est une dimension en millimètres. |
+| **Barèmes créés à la volée** | Au premier accès, pas par la migration ni par l'installation — une installation faite avant ce lot retrouve ses quatre barèmes sans intervention. |
+| **`GET /api/baremes`** | Rend l'enveloppe `{elements, total}` comme toute liste, **sans pagination** (quatre types fixes), dans l'ordre où le contrat les énumère. |
+| **`neutre` est calculé** | Depuis `donnees`, jamais stocké. Conséquence assumée : **vider les données remet le barème en neutre** — un barème vidé n'est plus calibré, et le front doit le dire. |
+| **`type`, `libelle`, `neutre` au `PUT`** | **Acceptés et ignorés**, comme `calibration_faite` : l'URL porte le type, `donnees` décide de `neutre`. Le front repose l'objet qu'il vient de lire sans l'amputer. |
+| **`machines_ids`** | Chaque identifiant doit désigner une machine existante, sinon **422**. Liste vide = **toutes** les machines. |
+| ⚠️ **`POST /api/calibration/taux-machine` reste accessible en mode démo** | C'est un `POST`, mais il **n'écrit rien**. Le refuser retirerait à la démonstration publique l'écran qui montre le mieux l'application, sans rien protéger. Le jour où cet endpoint écrira quoi que ce soit, la garde doit revenir. |
+
+**Ce que CC2 peut coder maintenant** : les six écrans de référentiels et
+l'assistant de calibration, pour de vrai. **Ce qui reste en 404** :
+optimisation, chiffrage, devis — ils arrivent au lot 2c.
 
 ### v1.2 — annoncée le 20/08/2026, **avant écriture** du lot 2b
 
@@ -710,7 +727,7 @@ donnée du client, pas de l'imprimeur, et elle contraint l'optimisation.
 | `tarification.type` | `forfait`, `m2` ou `mille`. |
 | `silhouette_automatique` | Déclenche la règle silhouette, qui **oriente la recherche de format**. |
 
-## 6. Paramètres et calibration — ⏳ pas encore livré (spécifié en v1.2)
+## 6. Paramètres et calibration — ✅ livré (lot 2b-2)
 
 ### `GET /api/parametres/couts` · `PUT /api/parametres/couts`
 
@@ -753,7 +770,7 @@ L'assistant ne demande **jamais un tarif à recopier**, seulement des nombres qu
 l'imprimeur connaît :
 
 ```json
-{ "prix_achat_presse_eur": "250000.00", "duree_amortissement_ans": 10,
+{ "prix_achat_presse_eur": "240000.00", "duree_amortissement_ans": 10,
   "heures_productives_par_an": 1600, "energie_eur_an": "12000.00",
   "maintenance_eur_an": "8000.00" }
 ```
@@ -763,8 +780,16 @@ pas justifier ne sera pas adopté :
 
 ```json
 { "taux_eur_h": "27.50",
-  "detail": [{ "libelle": "Amortissement", "montant_eur_h": "15.63" }] }
+  "detail": [{ "libelle": "Amortissement", "montant_eur_h": "15.00" },
+             { "libelle": "Energie",       "montant_eur_h": "7.50" },
+             { "libelle": "Maintenance",   "montant_eur_h": "5.00" }] }
 ```
+
+⚠️ **Les trois lignes s'additionnent pour donner le taux**, et c'est une
+contrainte, pas une coïncidence : chaque ligne est arrondie au centime, et le
+taux est leur **somme** — non le total arrondi une seule fois. L'écart peut
+atteindre un centime. Il est assumé : un imprimeur qui additionne ce qu'il voit
+et ne retombe pas dessus cesse de croire l'outil, pas son addition.
 
 Le calcul **ne s'enregistre pas tout seul** : il propose. C'est un `PUT` sur les
 paramètres qui décide.

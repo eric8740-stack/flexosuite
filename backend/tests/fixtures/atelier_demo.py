@@ -168,3 +168,61 @@ OPTION_DEMO = {
     "silhouette_automatique": True,
     "actif": True,
 }
+
+# =============================================================================
+#  SECTION 6 — parametres, calibration, baremes
+#
+#  Meme regle : ces champs sont tarifaires, ils ne s'ecrivent que dans CE
+#  module. Les tests importent.
+# =============================================================================
+
+# Les NEUF champs que la calibration doit remplir (la marge est deja posee par
+# l'installation, elle n'est pas ici).
+PARAMETRES_COUTS_DEMO = {
+    "cout_exploitation_machine_eur_h": "300.00",
+    "cout_operateur_eur_h": "60.00",
+    "marge_confort_roulage_mm": 20,
+    "cliche_prix_couleur_eur": "40.00",
+    "outil_base_eur": "250.00",
+    "outil_par_trace_eur": "60.00",
+    "surcout_forme_speciale_facteur": "1.50",
+    "calage_forfait_eur": "200.00",
+    "finitions_prix_m2_eur": "0.2000",
+}
+
+# Cas ROND, choisi pour se recontroler a la main :
+#   240 000 / 10 = 24 000/an ; 24 000 / 1 600 = 15,00
+#   12 000 / 1 600 = 7,50  ·  8 000 / 1 600 = 5,00  ->  taux = 27,50
+CALIBRATION_RONDE = {
+    "prix_achat_presse_eur": "240000.00",
+    "duree_amortissement_ans": 10,
+    "heures_productives_par_an": 1600,
+    "energie_eur_an": "12000.00",
+    "maintenance_eur_an": "8000.00",
+}
+CALIBRATION_RONDE_TAUX = "27.50"
+CALIBRATION_RONDE_LIGNES = ("15.00", "7.50", "5.00")
+
+# Cas NON ROND, choisi pour que les trois divisions tombent mal et que l'ecart
+# entre « somme des lignes arrondies » et « total arrondi une fois » apparaisse :
+#   187 500 / 7 = 26 785,714.../an ; / 1 700 = 15,756... -> 15,76
+#   9 450 / 1 700 = 5,558... -> 5,56  ·  6 300 / 1 700 = 3,705... -> 3,71
+#   somme des lignes  = 25,03      <- ce que rend l'API
+#   total arrondi une fois = 25,02  <- ce qu'elle ne rend PAS, et c'est voulu
+CALIBRATION_NON_RONDE = {
+    "prix_achat_presse_eur": "187500.00",
+    "duree_amortissement_ans": 7,
+    "heures_productives_par_an": 1700,
+    "energie_eur_an": "9450.00",
+    "maintenance_eur_an": "6300.00",
+}
+CALIBRATION_NON_RONDE_TAUX = "25.03"
+CALIBRATION_NON_RONDE_LIGNES = ("15.76", "5.56", "3.71")
+CALIBRATION_NON_RONDE_TOTAL_ARRONDI_UNE_FOIS = "25.02"
+
+# Un bareme calibre : des points, donc `neutre` a faux.
+BAREME_CALIBRE = {
+    "machines_ids": [],
+    "donnees": {"points": [{"x": 10, "y": "1.05"}, {"x": 50, "y": "1.20"}]},
+    "actif": True,
+}

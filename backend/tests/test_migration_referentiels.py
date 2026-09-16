@@ -24,6 +24,10 @@ BACKEND = Path(__file__).resolve().parent.parent
 
 TABLES_REFERENTIELS = {"machine", "cylindre", "matiere", "outil", "client", "option"}
 TABLES_NOYAU = {"utilisateur", "session_utilisateur", "parametres_couts"}
+# La DERNIERE migration en date. C'est elle, et elle seule, que `downgrade -1`
+# defait — d'ou la constante : le jour ou une migration s'ajoute, ce test doit
+# etre relu, pas rafistole.
+TABLES_DERNIERE_MIGRATION = {"bareme"}
 
 
 def _alembic(base: Path, *arguments: str) -> None:
@@ -95,12 +99,14 @@ def test_l_aller_retour_de_migration_se_joue_sur_une_base_vierge(base_neuve):
     _alembic(base_neuve, "upgrade", "head")
     apres_remontee = _tables(base_neuve)
 
-    assert TABLES_REFERENTIELS <= apres_montee
-    # La descente ne retire QUE le lot 2b : le noyau reste debout, sinon une
-    # mise a jour ratee chez le client emporterait les comptes avec elle.
-    assert not (TABLES_REFERENTIELS & apres_descente)
-    assert TABLES_NOYAU <= apres_descente
-    assert TABLES_REFERENTIELS <= apres_remontee
+    attendues = TABLES_NOYAU | TABLES_REFERENTIELS | TABLES_DERNIERE_MIGRATION
+    assert attendues <= apres_montee
+    # La descente ne defait QUE la derniere migration : tout le reste tient
+    # debout. Une mise a jour ratee chez le client ne doit pas emporter les
+    # comptes ni le parc avec elle.
+    assert not (TABLES_DERNIERE_MIGRATION & apres_descente)
+    assert (TABLES_NOYAU | TABLES_REFERENTIELS) <= apres_descente
+    assert attendues <= apres_remontee
 
 
 def test_le_schema_revient_a_l_IDENTIQUE_apres_l_aller_retour(base_neuve):
