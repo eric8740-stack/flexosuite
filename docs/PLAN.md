@@ -92,10 +92,14 @@ Découpé en trois sous-lots, **backend livré avant le front** à chaque fois :
       PR : **2b-1** les six référentiels (section 5), **2b-2** paramètres,
       calibration et barèmes (section 6). Routeur CRUD générique instancié six
       fois ; `est_reference()` en un point unique que le lot 2c étendra.
-      ⚠️ Les deux PR attendent le feu vert d'Eric — la porte n'est pas franchie
-      tant qu'elles ne sont pas mergées.
+      ✅ **Les deux PR sont mergées** le 16/09/2026, audits Codex traités.
 - [ ] **2c — optimisation, chiffrage, devis.** Le moteur du lot 1 branché sur
       l'API. Les montants dorés restent la référence : aucun ne bouge.
+      Contrat **v1.3 annoncé avant écriture** (PR 2c-0), puis quatre PR :
+      **2c-1** encres et paramètres géométriques · **2c-2** optimiseur ·
+      **2c-3** aperçu de chiffrage · **2c-4** devis persistés.
+      ⚠️ **C'est le 2c-4 qui franchit la porte du lot 2** : son critère est
+      « un devis complet se crée et se **rejoue** par l'API ».
 
 > **🟡 Contrat d'API : v1 annoncée le 20/08**, avant écriture du lot 2. Il porte
 > un **journal des changements** et un **état de livraison par section**. Quand il

@@ -342,6 +342,22 @@ DevisInput(
 ✅ **Produit par l'ancien moteur avec l'Atelier A, et recontrôlé à la main.**
 Ce cas est reproductible depuis ce document seul.
 
+> ### ⚠️ Pas de prix au mille sur ce cas — et c'est délibéré
+>
+> V1a est un appel **direct au moteur de coûts** : il reçoit `ml_total=3000`,
+> **pas une quantité d'étiquettes**. Il ne traverse aucune chaîne de pose, et
+> `EntreeChiffrage` ne porte même pas de champ `quantite`.
+>
+> Le prix au mille se calcule sur la quantité **commandée** (§ 6). Ce cas n'en
+> a pas : **aucune valeur n'est donc figée ici.** En inventer une reviendrait à
+> choisir un nombre pour justifier un montant — exactement ce que l'erratum du
+> 20/08 reproche à la première série multi-lots : un attendu non reproductible
+> depuis ce document.
+>
+> Les montants dorés du prix au mille sont **M1, M2 et M3** (§ 6), qui portent
+> leur quantité. *Arbitrage d'Eric du 16/09/2026, corrigé le jour même après
+> que l'absence de quantité a été signalée.*
+
 ## 5 bis. Cas de référence B — 1 587,66 € HT, celui qui exerce les arrondis
 
 **Structure du payload** — quantités et laizes elles aussi non rondes :
@@ -752,8 +768,43 @@ C'est elle qui rend le cas reproductible. **On ne code pas contre un total.**
 > dans la chaîne, et les oublier fait manquer M1 de plusieurs euros : le métrage
 > alimente P1, P5, P6 et P7 à la fois.
 
-> **`prix_au_mille` n'est pas figé** à ce stade : sa base de comptage n'a pas été
-> vérifiée. À constater avant de l'inscrire dans un test.
+### Le prix au mille — base tranchée le 16/09/2026
+
+```
+prix_au_mille = prix_vente_ht / ( Σ quantités COMMANDÉES des lots / 1000 )
+                arrondi au centime
+```
+
+> ⚠️ **La base est la quantité COMMANDÉE, pas la quantité PRODUITE.** Les deux
+> ne coïncident jamais : la convention « on finit le tour entamé » fait sortir
+> plus d'étiquettes que commandé (ici 1 667 tours × 6 poses = **10 002**, pour
+> 10 000 commandées). Compter le produit ferait bouger le prix au mille d'un
+> tirage à l'autre **sans qu'aucun tarif n'ait changé**, et personne ne saurait
+> l'expliquer au client. Arbitrage d'Eric, 16/09/2026.
+
+| Cas | Prix de vente HT | Quantité commandée | **Prix au mille** |
+| --- | ---: | ---: | ---: |
+| **M1** | 585,36 | 10 000 | **58,54 €** |
+| **M2** | 920,72 | 20 000 | **46,04 €** |
+| **M3** | 1 170,72 | 20 000 | **58,54 €** |
+
+**Les trois sont figés en montants dorés** et s'écrivent en test au même titre
+que les prix de vente. Ils sont reproductibles depuis ce document seul : la
+fixture du § 6 donne « **10 000 par lot** », et le reste est une division.
+
+```
+M1 : 585,36 / 10 = 58,536 -> 58,54          (1 lot  = 10 000 commandées)
+M2 : 920,72 / 20 = 46,036 -> 46,04          (2 lots = 20 000 commandées)
+M3 : 1 170,72 / 20 = 58,536 -> 58,54        (2 lots = 20 000 commandées)
+```
+
+> **À verrouiller en test à côté des trois invariants** : le cas A, lui, n'a
+> pas de prix au mille — il n'a pas de quantité (§ 5).
+
+> ⚠️ **M3 retombe sur le prix au mille de M1 (58,54), et c'est juste** : M3
+> vaut exactement deux fois M1 pour exactement deux fois la quantité. C'est le
+> 3ᵉ invariant, vu sous un autre angle. Un moteur qui rendrait autre chose ici
+> a un problème ailleurs.
 
 ### La chaîne de laize, sur ce cas précis
 

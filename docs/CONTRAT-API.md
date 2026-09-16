@@ -13,22 +13,63 @@
 
 ## État de livraison, section par section
 
-| Section | État au 20/08/2026 |
+| Section | État au 16/09/2026 |
 | --- | --- |
 | 1. Service — `GET /api/sante` | ✅ **livré** |
 | 1. Service — `GET /api/contexte` | ✅ **livré** — les quatre champs |
 | 1 bis. Installation et session | ✅ **livré** — lot 2a |
-| 2. Optimisation de pose | ⏳ spécifié, **pas encore livré** |
-| 3. Chiffrage | ⏳ spécifié, **pas encore livré** — le moteur existe et est testé, l'endpoint non |
-| 4. Devis | ⏳ spécifié, **pas encore livré** |
-| 5. Référentiels | ✅ **livré** — lot 2b-1, les six ressources |
+| 2. Optimisation — `POST /api/optimisation/configurations` | ⏳ spécifié, **pas encore livré** — arrive au **lot 2c-2** |
+| 2. Optimisation — `GET /api/sens-enroulement` | ⏳ spécifié, **pas encore livré** — arrive au **lot 2c-1** |
+| 3. Chiffrage — `POST /api/devis/apercu` | ⏳ spécifié, **pas encore livré** — le moteur existe et est testé, l'endpoint non. Arrive au **lot 2c-3** |
+| 4. Devis — `POST`/`GET`/`PUT`/`DELETE`, `PUT /{id}/statut`, `GET /{id}/apercu` | ⏳ spécifié, **pas encore livré** — arrive au **lot 2c-4** |
+| 5. Référentiels — les six ressources | ✅ **livré** — lot 2b-1 |
+| 5. Référentiels — `/api/encres`, 7ᵉ ressource | ⏳ spécifié en **v1.3**, **pas encore livré** — arrive au **lot 2c-1** |
 | 6. Paramètres et calibration | ✅ **livré** — lot 2b-2 |
+| 6. `parametres_couts.bord_lateral_mm` | ⏳ spécifié en **v1.3**, **pas encore livré** — arrive au **lot 2c-1** |
+
+> **La v1.3 est ANNONCÉE, elle n'est pas livrée.** Tout ce que cette version
+> ajoute répond **404** (ou ignore le champ) tant que la ligne correspondante
+> porte ⏳. Le lot 2c la livre en quatre PR, et chacune met cette table à jour
+> **dans la PR qui livre**.
 
 > ⚠️ **Un état de livraison faux est pire qu'une absence d'état** : il envoie le
 > front coder contre du vide en croyant l'endpoint disponible. Cette table est
 > mise à jour **dans la PR qui livre**, jamais après coup.
 
 ## 📣 Journal des changements — à lire avant de coder
+
+### v1.3 — annoncée le 16/09/2026, **avant écriture** du lot 2c
+
+> **Rien de ce qui suit n'est implémenté au moment de cette annonce.** Comme la
+> v1 et la v1.2, le **backend part en premier** et la table d'état de livraison
+> dit quand. Le lot 2c branche enfin le moteur du lot 1 sur l'API : sections 2
+> (optimisation), 3 (chiffrage) et 4 (devis).
+>
+> **Un seul changement casse l'existant**, et il est isolé en tête de tableau.
+
+| Changement | Nature | Effet sur le front |
+| --- | --- | --- |
+| **Chaque lot d'aperçu porte son `format`** — `{ largeur_mm, hauteur_mm }`, **obligatoire** — et un `contrainte_client { intervalle_dev_min_mm }` facultatif | ⚠️ **CASSANT** | Un `POST /api/devis/apercu` sans `format` répond **422 `payload_invalide`**. **Pourquoi c'est indispensable** : le serveur rejoue la chaîne de pose depuis `configuration_id`, et un identifiant de configuration ne porte ni la largeur ni la hauteur de l'étiquette. Sans le format, la géométrie n'est pas reproductible — le chiffrage serait calculé sur une pose devinée. |
+| **7ᵉ référentiel : `/api/encres`** — `{ id, type, prix_kg_eur (4 déc.), ratio_g_m2_couleur (3 déc.), actif }` | additif | Même forme que les six autres : même enveloppe de liste, mêmes codes, `type` **unique** (doublon → **409 `deja_existant`**). ⚠️ **Vide à l'installation, comme tous les tarifs** : c'en est un. Sans tarif d'encre pour un type demandé, le chiffrage répond **409 `calibration_requise`**. |
+| **`matiere.palier_fournisseur_mm`** — entier **> 0**, défaut **10** | additif avec défaut | Nouveau champ en lecture **et** en écriture. ⚠️ Le `PUT` des référentiels **remplace tout** : un front qui met à jour une matière doit désormais l'envoyer, sinon **422**. Les matières existantes le reçoivent à **10** par la migration. |
+| **`machine.laize_mini_roulable_mm`** — décimal **≥ 0**, défaut **0** | additif avec défaut | Idem : à envoyer dans le `PUT` d'une machine. `0` signifie « aucun plancher », pas « plancher nul » — c'est le comportement d'avant, à l'identique. |
+| **`parametres_couts.bord_lateral_mm`** — entier **≥ 0**, défaut **8** | additif avec défaut | ⚠️ **Il ne compte PAS dans `calibration_faite`**, qui reste à **neuf** champs. Ce n'est pas un tarif : c'est une convention d'atelier qui a un défaut sain, alors qu'un tarif n'en a jamais. Il suit le `PUT` **partiel** de la section 6, comme les autres. |
+| **`configuration_id` est analysable** : `cyl{cylindre_id}-mach{machine_id}-{n}p` | précision | Le front le transporte **tel quel** de l'optimisation vers l'aperçu — il ne le fabrique ni ne le décompose. Le serveur le rejoue depuis l'id + le format + la matière. Id inconnu ou incohérent avec le parc → **422 `payload_invalide`**. |
+| **Forme de `outil_a_fabriquer`** | précision | `{ largeur_mm, hauteur_mm, nb_poses_laize, nb_poses_developpe, developpe_cylindre_mm, cout_estime_eur, alertes }`. `cout_estime_eur` peut être **`null`** : le front affiche alors la proposition **sans prix**, avec l'alerte jointe — jamais « 0,00 € ». |
+| **Règle de classement et départage** | précision | Le tri reste **fait par le serveur** (`rang`), le front ne le rejoue pas. Ce qui est désormais écrit : le score, et le départage **déterministe** qui garantit qu'un même brief rend toujours le même ordre. |
+| **`prix_au_mille_eur`** — formule fixée | précision | Prix de vente HT ÷ (somme des quantités **commandées** des lots ÷ 1000), arrondi au centime. ✅ **Base tranchée par Eric le 16/09/2026** : c'est la quantité **commandée**, jamais la quantité **produite** (celle que les tours entamés font dépasser). Le champ est désormais **figé dans le jeu doré**. |
+| **Deux 409 sur le chiffrage** | précision | `calibration_requise` si les paramètres de coûts manquent, **et** si le tarif d'encre d'un type demandé manque — le `detail` **nomme le type**. Le front envoie vers l'assistant de calibration dans les deux cas. |
+| **Cycle de vie du devis** | précision | Numéro **`DV-AAAA-NNNN`** attribué par le serveur, jamais par le front. Statuts `brouillon` → `envoye` → `accepte` ou `refuse`. `PUT` complet et `DELETE` **en brouillon seulement**. Un devis `envoye` ou plus porte un **instantané** de son aperçu. |
+| **Nouveau code : `devis_fige`** | additif | **409**. Voir le tableau des codes. |
+| **Rappel v1.2 — `cylindre.nb_dents` est `null`-able** | ⚠️ rappel **CASSANT** déjà annoncé | Répété ici parce que le type du front dit encore `number`. Le **développé fait foi** ; `nb_dents` est un repère de catalogue facultatif. Un front qui l'affiche sans garde casse sur un parc réel. |
+
+**Ce que CC2 peut préparer sans risque** : les écrans d'optimisation, d'aperçu
+et de liste de devis, sur la forme décrite aux sections 2, 3 et 4 — elle ne
+bougera plus. Et **tout de suite**, sans attendre le backend : la garde sur
+`nb_dents`, et le `format` dans le corps d'aperçu.
+
+**Ce qu'il vaut mieux ne pas figer** : rien de nouveau — mais tant que la table
+d'état de livraison porte ⏳, ces endpoints répondent **404**.
 
 ### v1.2 — **livrée avec le lot 2b**, le 16/09/2026
 
@@ -216,6 +257,7 @@ aperçu de chiffrage, devis, référentiels, calibration.
 | **Origine** | En production, front et API partagent la **même origine** (mono-port). Le front n'écrit **jamais** d'URL absolue. |
 | **Montants** | Sérialisés en **chaîne** (`"1777.00"`), jamais en nombre flottant. Le front ne fait **aucun calcul monétaire** : il affiche. |
 | **Dimensions** | En **millimètres**, entiers ou décimaux selon le champ. Les longueurs de bande sont en **mètres linéaires**. |
+| **Dimensions — entrée et sortie** | **v1.3, précision.** ⚠️ Les exemples de ce document n'écrivent pas les dimensions de la même façon des deux côtés, et ce n'est pas un oubli. **En REQUÊTE, le serveur accepte les deux formes** — `100`, `100.0` ou `"100.00"` désignent la même chose (c'est pourquoi `format` est écrit en nombres et `intervalle_dev_min_mm` en chaîne, dans le même objet, depuis la v0). **En RÉPONSE, une dimension est TOUJOURS une chaîne normalisée** (`"100.00"`), comme les montants. Un front typé déclare donc `string` pour tout décimal **lu**, et peut envoyer ce qui l'arrange en **écriture**. |
 | **Langue** | Champs en **français**. Pas de `company`, pas de `width`. |
 | **Dates** | ISO 8601, UTC. |
 | **Erreurs** | `{"code": "...", "detail": "..."}` — **toujours les deux**. Voir ci-dessous. |
@@ -254,6 +296,7 @@ aperçu de chiffrage, devis, référentiels, calibration.
 | `regle_metier` | 400 | Afficher `detail` tel quel — c'est du métier, pas une panne |
 | `reference_utilisee` | 409 | **v1.2** — la suppression est refusée : l'élément sert ailleurs. Proposer de le **désactiver** (`actif: false`) plutôt que de le supprimer |
 | `deja_existant` | 409 | **v1.2** — la clé (nom, code, référence) est déjà prise. Signaler le champ, ne pas réessayer tel quel |
+| `devis_fige` | 409 | **v1.3** — le devis n'est plus en brouillon : il ne se modifie plus et ne se supprime plus. Proposer de le **dupliquer**, pas de réessayer. Un devis parti chez un client ne se réécrit pas dans son dos |
 
 ## 1. Service — ✅ livré
 
@@ -465,6 +508,83 @@ plafond d'intervalle en laize, et seule la faisabilité géométrique est vérif
   × 300 mm = 500,10 m → **501**. Le front affiche la valeur reçue, il ne la
   recalcule pas.
 
+### Précisions de la v1.3 — identifiant, classement, outil à fabriquer
+
+#### `configuration_id` — analysable, et rejouable
+
+```
+cyl{cylindre_id}-mach{machine_id}-{n}p        ex. : cyl12-mach3-3p
+```
+
+`{n}` est le **nombre de poses en laize**. Le front le transporte **tel quel**
+vers `POST /api/devis/apercu` : il ne le fabrique pas, et n'a aucune raison de
+le décomposer.
+
+C'est le serveur qui le **rejoue** — il retrouve le cylindre et la machine, et
+recalcule la chaîne de pose à partir de l'identifiant, **du format et de la
+matière** que l'aperçu lui redonne. Un identifiant inconnu, mal formé, ou qui
+désigne un cylindre ou une machine absent du parc (ou désactivé) répond
+**422 `payload_invalide`**.
+
+> ⚠️ **L'identifiant ne porte ni le format ni la quantité.** C'est pour cette
+> raison que le lot d'aperçu doit porter son `format` — le changement CASSANT
+> de la v1.3. Un serveur qui devinerait le format rendrait un prix calculé sur
+> une pose qui n'est pas celle qu'on lui a montrée.
+
+#### Le classement, et son départage
+
+```
+score = score_du_palier_d_echenillage × coef_vitesse_cumulé ÷ coef_gâche_cumulé
+```
+
+À palier égal, une configuration plus rapide et moins gâcheuse gagne. Le
+départage est **déterministe**, dans cet ordre :
+
+1. **score** décroissant ;
+2. **rendement** décroissant ;
+3. **intervalle en développé** croissant ;
+4. **`configuration_id`** croissant.
+
+> ⚠️ **Barèmes neutres — le cas de toute installation neuve.** Un barème vide
+> rend des coefficients à **1,0** et un score à **0** : *tous* les scores valent
+> alors zéro, et c'est le départage qui fait la totalité du classement. Ce n'est
+> pas une panne, c'est le comportement voulu — l'application ne prétend pas
+> connaître un parc qu'elle n'a pas encore vu. Une **alerte `info`** le dit, et
+> le front l'affiche : sinon le deviseur lit un classement comme un conseil
+> alors qu'il n'est qu'un ordre stable.
+
+Les quatre critères existent pour qu'un **même brief rende toujours le même
+ordre**. Un classement qui change d'un appel à l'autre, à données égales, est
+iningénierable : le deviseur croit avoir mal lu.
+
+#### `outil_a_fabriquer` — la forme, et le prix qui peut manquer
+
+```json
+{
+  "largeur_mm": "100.00",
+  "hauteur_mm": "80.00",
+  "nb_poses_laize": 3,
+  "nb_poses_developpe": 2,
+  "developpe_cylindre_mm": "298.45",
+  "cout_estime_eur": "310.00",
+  "alertes": []
+}
+```
+
+```
+cout_estime_eur = outil_base_eur + outil_par_trace_eur × nb_traces
+                  ( × surcout_forme_speciale_facteur si la forme est spéciale )
+```
+
+⚠️ **`cout_estime_eur` vaut `null` tant que la calibration n'est pas faite**, et
+une **alerte** l'accompagne. Ces trois paramètres sont des **tarifs** : ils
+partent vides à l'installation. Le front affiche alors la proposition d'outil
+**sans prix** — jamais « 0,00 € », qui se lirait comme un outil gratuit.
+
+Le développé proposé est le **meilleur développé théorique** : un multiple de
+la dent (3,175 mm), et non un développé rond. Il ne correspond à aucun cylindre
+du parc — c'est précisément pourquoi il faut le fabriquer.
+
 ### Les 8 sens d'enroulement
 
 Le sens est choisi côté front, entre **1 et 8**. Le backend rend les rotations à
@@ -501,6 +621,8 @@ modification pour tenir un prix à jour.
   "lots": [
     {
       "configuration_id": "cyl12-mach3-3p",
+      "format": { "largeur_mm": 100, "hauteur_mm": 80 },
+      "contrainte_client": { "intervalle_dev_min_mm": "3.0" },
       "matiere_id": 12,
       "quantite": 10000,
       "nb_couleurs_par_type": { "quadri": 4, "pantone": 1 },
@@ -547,6 +669,13 @@ modification pour tenir un prix à jour.
 }
 ```
 
+> ⚠️ **Cet exemple est une ILLUSTRATION, pas un attendu.** Le `177.70` vaut
+> pour **10 000 exemplaires commandés** (1 777,00 ÷ 10) — une quantité posée
+> ici pour que l'exemple se recontrôle à la main. Le cas V1a de
+> `docs/SPEC-METIER.md` § 5, dont sort le 1 777,00, **ne porte aucune
+> quantité** : il n'a donc **pas** de prix au mille doré. Les montants dorés du
+> prix au mille sont **M1 (58,54), M2 (46,04) et M3 (58,54)**, au § 6.
+
 **Trois obligations pour le front :**
 
 1. **`coefficient` s'affiche à côté de `marge_pct`.** `× (1 + pct)` est une
@@ -560,22 +689,117 @@ modification pour tenir un prix à jour.
 3. **`calage_mutualise_eur`** dit pourquoi un lot coûte moins cher que le
    précédent. C'est un argument commercial, pas une ligne technique : à montrer.
 
+### Précisions de la v1.3
+
+| Point | Ce qui est fixé |
+| --- | --- |
+| **`format` — obligatoire par lot** | ⚠️ **CASSANT.** `{ largeur_mm, hauteur_mm }`. Absent → **422 `payload_invalide`**. Le serveur rejoue la chaîne de pose depuis `configuration_id` **+ ce format + la matière** : sans lui, la géométrie n'est pas reproductible. |
+| **`contrainte_client` — facultatif** | `{ intervalle_dev_min_mm }`. L'intervalle appliqué est `MAX(minimum imprimeur, minimum client)`. Quand c'est **le client** qui l'emporte, une **alerte `info`** le dit — « intervalle requis par votre machine de pose ». C'est un argument, pas un avertissement : il préempte la question « pourquoi n'avez-vous pas optimisé davantage ? ». |
+| **`prix_au_mille_eur`** | `prix_vente_ht_eur ÷ (somme des quantités COMMANDÉES des lots ÷ 1000)`, arrondi au centime. ⚠️ **La base est la quantité COMMANDÉE, pas la quantité PRODUITE.** Les deux diffèrent toujours : on finit le tour entamé, donc la presse sort **plus** d'étiquettes que commandé. Compter le produit ferait baisser le prix au mille d'un tirage à l'autre **sans qu'aucun tarif n'ait bougé** — et le deviseur ne saurait pas pourquoi. Tranché par Eric le 16/09/2026 ; figé dans le jeu doré. |
+| **`marge_pct_override`** | Facultatif, `null` par défaut (la marge des paramètres s'applique). Borné comme `marge_standard_pct` de la section 6 : **0 à 500**. Hors bornes → **422**. |
+| **Aucune écriture** | Cet endpoint ne touche pas la base. Il est donc **autorisé en mode démo**, comme `POST /api/calibration/taux-machine` — même raison : un `POST` qui n'écrit rien, et la démo perdrait son meilleur écran. |
+
+**Les erreurs de cette section :**
+
+| Cas | Réponse |
+| --- | --- |
+| Paramètres de coûts incomplets | **409 `calibration_requise`** — le front envoie vers l'assistant de calibration. |
+| Aucun tarif d'encre pour un type demandé | **409 `calibration_requise`**, et le `detail` **nomme le type** (« aucun tarif d'encre pour le type « pantone » »). Le front peut ouvrir directement l'écran des encres. |
+| `configuration_id` inconnu ou incohérent avec le parc | **422 `payload_invalide`** |
+| `matiere_id` ou un code d'option inconnu | **404 `introuvable`** |
+
+> ⚠️ **Pourquoi un tarif d'encre manquant est un 409 et non un 422.** Le front
+> n'a rien envoyé de mal : il a demandé 5 couleurs, ce qui est légitime. C'est
+> l'**état de l'installation** qui est incomplet. Un 422 ferait surligner un
+> champ du formulaire ; un 409 `calibration_requise` envoie là où se trouve le
+> geste réparateur.
+
 ### `GET /api/devis/{id}/apercu`
 
 Même réponse, pour un devis déjà enregistré.
+
+⚠️ **Sur un devis `envoye`, `accepte` ou `refuse`, c'est l'INSTANTANÉ qui est
+rendu — jamais un recalcul.** Voir la section 4.
 
 ## 4. Devis — ⏳ pas encore livré
 
 | Verbe | Route | Effet |
 | --- | --- | --- |
-| `POST` | `/api/devis` | Crée le devis et ses lots. `201`. |
+| `POST` | `/api/devis` | Crée le devis et ses lots. `201`. La réponse porte le **`numero`** attribué. |
 | `GET` | `/api/devis` | Liste paginée : `{ "elements": [...], "total": n }`, paramètres `page` (1 par défaut) et `taille` (25 par défaut, 200 au plus). |
 | `GET` | `/api/devis/{id}` | Le devis avec ses lots. |
-| `PUT` | `/api/devis/{id}` | Remplace le devis et ses lots. |
-| `DELETE` | `/api/devis/{id}` | `204`. |
+| `PUT` | `/api/devis/{id}` | Remplace le devis et ses lots. **Brouillon seulement.** |
+| `PUT` | `/api/devis/{id}/statut` | **v1.3** — change le seul statut. Corps : `{ "statut": "envoye" }`. |
+| `DELETE` | `/api/devis/{id}` | `204`. **Brouillon seulement.** |
+| `GET` | `/api/devis/{id}/apercu` | L'aperçu chiffré — l'**instantané** s'il existe, sinon le recalcul. Voir section 3. |
 
-Le devis porte un **numéro attribué par le serveur** — le front ne le fabrique
-jamais. Statuts : `brouillon`, `envoye`, `accepte`, `refuse`.
+### Le numéro — `DV-AAAA-NNNN`, attribué par le serveur
+
+```
+DV-2026-0001        DV = devis · AAAA = année civile · NNNN = rang dans l'année
+```
+
+**Le front ne le fabrique jamais**, et ne le devine pas non plus : il le lit
+dans la réponse du `POST`. Le compteur repart à `0001` à chaque année civile.
+Au-delà de 9 999 devis dans l'année, le numéro s'allonge — il n'est pas tronqué.
+
+Le numéro est **unique en base**. Deux créations simultanées ne peuvent pas
+obtenir le même : c'est la contrainte qui tranche, pas une lecture préalable.
+
+### Les statuts, et ce qu'ils ferment
+
+```
+brouillon → envoye → accepte
+                    ↘ refuse
+```
+
+| Depuis | Vers | Autorisé ? |
+| --- | --- | --- |
+| `brouillon` | `envoye` | ✅ |
+| `envoye` | `accepte` · `refuse` | ✅ |
+| tout le reste (`envoye` → `brouillon`, `brouillon` → `accepte`, `accepte` → quoi que ce soit…) | | ❌ **409 `devis_fige`** |
+
+| Opération | En `brouillon` | Autrement |
+| --- | --- | --- |
+| `PUT /api/devis/{id}` (remplacement complet) | ✅ | **409 `devis_fige`** |
+| `DELETE /api/devis/{id}` | ✅ `204` | **409 `devis_fige`** |
+| `PUT /api/devis/{id}/statut` | ✅ vers `envoye` | ✅ selon le tableau ci-dessus |
+
+> ⚠️ **Pourquoi un devis parti se fige.** Un devis `envoye` est un document
+> qu'un client a reçu. Le modifier dans son dos produit deux vérités pour un
+> seul numéro — et c'est celle du client qui fait foi le jour du litige. Le
+> front propose donc la **duplication**, jamais la correction sur place.
+
+### L'instantané — pourquoi un devis envoyé ne se recalcule pas
+
+Au passage à **`envoye`**, le serveur calcule l'aperçu **une fois** et le range
+dans le devis. À partir de là, `GET /api/devis/{id}/apercu` rend **cet
+instantané**, jamais un recalcul.
+
+> ⚠️ **C'est la raison d'être du champ, et elle n'est pas technique.** Les
+> tarifs bougent : une matière augmente, la calibration est refaite, un barème
+> est ajusté. Un devis qui se recalculerait à chaque ouverture afficherait, six
+> semaines plus tard, un **autre prix que celui que le client a sous les yeux**.
+> Le devis doit dire ce qui a été promis, pas ce que ça coûterait aujourd'hui.
+
+Un devis en `brouillon` n'a **pas** d'instantané : `GET /{id}/apercu` le
+**recalcule** à chaque appel, ce qui est exactement ce qu'on veut d'un brouillon.
+
+### Ce que porte un lot
+
+Chaque lot du devis porte : `cylindre_id`, `machine_id`, `matiere_id`,
+`outil_id` (facultatif), le **format**, les poses en laize et en développé, le
+**sens d'enroulement** (1 à 8), la quantité, les couleurs par type, les
+forfaits de sous-traitance, `changement_outil_cliche`, `outil_existant`,
+`nb_traces`, `forme_speciale`, et ses codes d'options.
+
+La liste est rendue par **identifiant croissant**, comme tous les référentiels.
+
+> ⚠️ **`DELETE` d'un référentiel porté par un devis → 409 `reference_utilisee`.**
+> C'est la promesse faite à la v1.2, tenue ici : machine, cylindre, matière,
+> client, outil et option entrent au même point unique du code. La
+> **désactivation** reste possible et **ne casse aucun devis passé** — un devis
+> qui porte une matière désactivée reste lisible et rejouable.
 
 ## 5. Référentiels — ✅ livré (lot 2b-1)
 
@@ -607,7 +831,7 @@ refusé de la même façon. Les listes sont rendues par **identifiant croissant*
 | **Clé étrangère inconnue → 422** | `cylindre.machine_id` ou `outil.cylindre_id` qui ne désigne rien répond **422 `payload_invalide`**, et le `detail` nomme le champ. Pas 404 : le contrat s'en sert déjà pour « cet endpoint n'est pas encore livré », et un front qui reçoit 404 sur un `POST` ne saurait pas s'il doit surligner un champ ou renoncer à l'écran. |
 | **Champ inconnu → 422** | Un champ que le contrat ne porte pas est refusé, jamais ignoré. |
 | **`DELETE` refusé, aujourd'hui** | **409 `reference_utilisee`** sur une machine portée par un cylindre, et sur un cylindre porté par un outil. Les devis s'y ajouteront au **lot 2c**, au même point du code. Le `detail` propose la désactivation. |
-| **Décimaux normalisés à l'écriture** | Deux décimales, **quatre** pour `prix_m2_eur`. Ce qui est relu est exactement ce qui a été rangé : l'API ne dit pas deux choses différentes selon le chemin emprunté. |
+| **Décimaux normalisés à l'écriture** | Deux décimales, sauf trois exceptions nommées : **quatre** pour `prix_m2_eur` et `prix_kg_eur`, **trois** pour `ratio_g_m2_couleur` (v1.3). Ce qui est relu est exactement ce qui a été rangé : l'API ne dit pas deux choses différentes selon le chemin emprunté. ⚠️ **La liste est exhaustive** — tout autre champ décimal est à deux décimales, y compris sur une ressource ajoutée plus tard. |
 | **Champs acceptant `null`** | `cylindre.nb_dents` (déjà annoncé), `cylindre.date_inventaire`, et `client.contact` / `email` / `telephone`. ⚠️ **Pour les quatre derniers, c'est un changement CASSANT**, pas une précision — voir le bloc dédié au journal des changements. `email` est par ailleurs une **chaîne libre** : son format n'est pas validé, le carnet d'adresses d'un atelier contient des choses comme « voir le service achats ». |
 | **Valeurs par défaut** | `actif` à `true` ; `forme_speciale` et `silhouette_automatique` à `false` ; `modules` et `modules_requis` à `[]` ; `groupes_couleurs_requis` à `0`. |
 | **Bornes des valeurs** | Le détail est au journal des changements ci-dessus. Deux points méritent d'être lus : **zéro reste accepté sur un prix** — une matière fournie par le client ne coûte rien, et l'interdire obligerait à inventer un tarif ; et **`intervalle_dev_min_mm` accepte zéro**, qui y signifie « pas de contrainte de pose » et non « contrainte nulle ». À l'inverse, un **coefficient** ne peut pas être nul : ils se cumulent multiplicativement, et un seul zéro annulerait la vitesse de toute la configuration. |
@@ -635,6 +859,7 @@ ne doit en calculer un.
   "nom": "Presse Démo A",
   "laize_utile_mm": "320.00",
   "laize_maxi_mm": "330.00",
+  "laize_mini_roulable_mm": "0.00",
   "vitesse_moyenne_m_h": 5000,
   "duree_calage_h": "2.00",
   "nb_groupes_couleurs": 8,
@@ -647,6 +872,12 @@ ne doit en calculer un.
 
 `modules` est une liste de codes libres : ce sont eux que les options comparent
 dans `modules_requis`.
+
+**v1.3 — `laize_mini_roulable_mm`** (décimal **≥ 0**, défaut **0**) : la laize
+en dessous de laquelle cette presse ne tient plus la bande. C'est le
+**plancher** de la chaîne de laize, appliqué **après** le plafond de la laize
+utile. À `0`, il ne s'applique pas — c'est le comportement d'avant la v1.3,
+à l'identique.
 
 ### `/api/cylindres`
 
@@ -677,6 +908,7 @@ recalculer l'un depuis l'autre.
   "nom": "Papier Démo 100",
   "grammage_g_m2": "100.00",
   "prix_m2_eur": "0.5000",
+  "palier_fournisseur_mm": 10,
   "epaisseur_reelle_micron": 95,
   "actif": true
 }
@@ -688,6 +920,13 @@ faux, donc un métrage par bobine faux. Le champ est obligatoire à la création
 
 `prix_m2_eur` porte **quatre décimales** : au m², la troisième et la quatrième
 pèsent sur un tirage de plusieurs milliers de mètres.
+
+**v1.3 — `palier_fournisseur_mm`** (entier **> 0**, défaut **10**) : les
+matières se livrent par **paliers standard**, et le palier dépend du
+fournisseur, donc de la matière. La laize commandée est arrondie au palier
+**supérieur** avant d'être plafonnée à la laize utile. Zéro est refusé (**422**) :
+il ferait une division par zéro dans la chaîne de laize, et « pas de palier »
+s'écrit `1`.
 
 ### `/api/outils`
 
@@ -750,6 +989,46 @@ donnée du client, pas de l'imprimeur, et elle contraint l'optimisation.
 | `tarification.type` | `forfait`, `m2` ou `mille`. |
 | `silhouette_automatique` | Déclenche la règle silhouette, qui **oriente la recherche de format**. |
 
+### `/api/encres` — v1.3, 7ᵉ ressource ⏳ pas encore livrée
+
+```json
+{
+  "id": 1,
+  "type": "quadri",
+  "prix_kg_eur": "20.0000",
+  "ratio_g_m2_couleur": "2.000",
+  "actif": true
+}
+```
+
+Même forme que les six autres : même enveloppe de liste, mêmes verbes, mêmes
+codes d'erreur, mêmes règles de `PUT` complet.
+
+⚠️ **Une seule chose diffère, et elle est volontaire : le nombre de décimales.**
+`prix_kg_eur` en porte **quatre** (comme `prix_m2_eur` : au kilo, la
+quatrième pèse sur une bobine entière) et `ratio_g_m2_couleur` en porte
+**trois** (un dépôt se mesure au millième de gramme). Les deux exceptions sont
+inscrites à l'invariant décimal de la section 5 ci-dessus — sinon le front ne
+saurait pas si `"2.000"` lui revient en `"2.00"`.
+
+| Champ | Règle |
+| --- | --- |
+| `type` | **Clé d'unicité** — doublon → **409 `deja_existant`**. Chaîne libre non vide, **pas une énumération** : le moteur connaît `quadri` et `pantone`, mais un atelier qui travaille le blanc opaque ou un vernis pigmenté doit pouvoir l'ajouter sans qu'on livre une version. C'est ce `type` que `nb_couleurs_par_type` désigne à l'aperçu. |
+| `prix_kg_eur` | **Quatre décimales**, **≥ 0**. Comme pour une matière, zéro reste accepté : une encre fournie par le client ne coûte rien. |
+| `ratio_g_m2_couleur` | **Trois décimales**, **> 0**. Grammes déposés par m² **et par couleur**. Zéro est refusé : une couleur qui ne dépose rien n'est pas une couleur. |
+| `actif` | Comme partout. Une encre désactivée reste lisible dans les devis passés. |
+
+> ⚠️ **Vide à l'installation — c'est un tarif.** Comme les neuf paramètres de
+> coûts, cette table part **vide** chez le client : livrer le catalogue d'encres
+> d'un autre atelier produirait des devis faux. Tant qu'un type demandé n'a pas
+> son tarif, `POST /api/devis/apercu` répond **409 `calibration_requise`** en
+> **nommant le type**.
+
+> **Pourquoi une table et non un champ des paramètres** : il y a autant de
+> tarifs que de types d'encre, et un atelier en ajoute. Neuf champs fixes ne
+> l'auraient pas porté, et un JSON dans les paramètres aurait échappé aux
+> bornes, à l'unicité et à `actif`.
+
 ## 6. Paramètres et calibration — ✅ livré (lot 2b-2)
 
 ### `GET /api/parametres/couts` · `PUT /api/parametres/couts`
@@ -766,13 +1045,25 @@ donnée du client, pas de l'imprimeur, et elle contraint l'optimisation.
   "surcout_forme_speciale_facteur": null,
   "calage_forfait_eur": null,
   "finitions_prix_m2_eur": null,
+  "bord_lateral_mm": 8,
   "calibration_faite": false
 }
 ```
 
 `calibration_faite` est **calculé** — le même booléen que `contexte`, rendu ici
-pour ne pas avoir à le refaire côté front. Il vaut vrai quand **les neuf** autres
-champs sont renseignés. En écriture, il est ignoré.
+pour ne pas avoir à le refaire côté front. Il vaut vrai quand **les neuf** champs
+tarifaires sont renseignés. En écriture, il est ignoré.
+
+**v1.3 — `bord_lateral_mm`** (entier **≥ 0**, défaut **8**) : la marge laissée
+de chaque côté entre la plaque et le bord de la bobine. Elle entre dans la
+chaîne de laize (`laize_plaque + 2 × bord`).
+
+> ⚠️ **Il ne compte PAS dans `calibration_faite`, qui reste à neuf champs.**
+> Ce n'est pas un tarif, c'est une **convention d'atelier** : 8 mm est une
+> valeur saine partout, alors qu'un tarif n'a jamais de défaut acceptable. Le
+> compter dans la calibration ferait passer une installation pour « calibrée »
+> à cause d'un champ qu'elle n'a jamais saisi — exactement le défaut corrigé
+> par l'audit du 16/09.
 
 Le `PUT` est **partiel** : seuls les champs envoyés sont modifiés. Un
 enregistrement sans modification ne déclenche **aucun appel**.
