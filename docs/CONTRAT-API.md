@@ -21,7 +21,7 @@
 | 2. Optimisation — `POST /api/optimisation/configurations` | ⏳ spécifié, **pas encore livré** — arrive au **lot 2c-2** |
 | 2. Optimisation — `GET /api/sens-enroulement` | ⏳ spécifié, **pas encore livré** — arrive au **lot 2c-1** |
 | 3. Chiffrage — `POST /api/devis/apercu` | ⏳ spécifié, **pas encore livré** — le moteur existe et est testé, l'endpoint non. Arrive au **lot 2c-3** |
-| 4. Devis — `POST`/`GET`/`PUT`/`DELETE`, `GET /{id}/apercu` | ⏳ spécifié, **pas encore livré** — arrive au **lot 2c-4** |
+| 4. Devis — `POST`/`GET`/`PUT`/`DELETE`, `PUT /{id}/statut`, `GET /{id}/apercu` | ⏳ spécifié, **pas encore livré** — arrive au **lot 2c-4** |
 | 5. Référentiels — les six ressources | ✅ **livré** — lot 2b-1 |
 | 5. Référentiels — `/api/encres`, 7ᵉ ressource | ⏳ spécifié en **v1.3**, **pas encore livré** — arrive au **lot 2c-1** |
 | 6. Paramètres et calibration | ✅ **livré** — lot 2b-2 |
@@ -257,6 +257,7 @@ aperçu de chiffrage, devis, référentiels, calibration.
 | **Origine** | En production, front et API partagent la **même origine** (mono-port). Le front n'écrit **jamais** d'URL absolue. |
 | **Montants** | Sérialisés en **chaîne** (`"1777.00"`), jamais en nombre flottant. Le front ne fait **aucun calcul monétaire** : il affiche. |
 | **Dimensions** | En **millimètres**, entiers ou décimaux selon le champ. Les longueurs de bande sont en **mètres linéaires**. |
+| **Dimensions — entrée et sortie** | **v1.3, précision.** ⚠️ Les exemples de ce document n'écrivent pas les dimensions de la même façon des deux côtés, et ce n'est pas un oubli. **En REQUÊTE, le serveur accepte les deux formes** — `100`, `100.0` ou `"100.00"` désignent la même chose (c'est pourquoi `format` est écrit en nombres et `intervalle_dev_min_mm` en chaîne, dans le même objet, depuis la v0). **En RÉPONSE, une dimension est TOUJOURS une chaîne normalisée** (`"100.00"`), comme les montants. Un front typé déclare donc `string` pour tout décimal **lu**, et peut envoyer ce qui l'arrange en **écriture**. |
 | **Langue** | Champs en **français**. Pas de `company`, pas de `width`. |
 | **Dates** | ISO 8601, UTC. |
 | **Erreurs** | `{"code": "...", "detail": "..."}` — **toujours les deux**. Voir ci-dessous. |
@@ -823,7 +824,7 @@ refusé de la même façon. Les listes sont rendues par **identifiant croissant*
 | **Clé étrangère inconnue → 422** | `cylindre.machine_id` ou `outil.cylindre_id` qui ne désigne rien répond **422 `payload_invalide`**, et le `detail` nomme le champ. Pas 404 : le contrat s'en sert déjà pour « cet endpoint n'est pas encore livré », et un front qui reçoit 404 sur un `POST` ne saurait pas s'il doit surligner un champ ou renoncer à l'écran. |
 | **Champ inconnu → 422** | Un champ que le contrat ne porte pas est refusé, jamais ignoré. |
 | **`DELETE` refusé, aujourd'hui** | **409 `reference_utilisee`** sur une machine portée par un cylindre, et sur un cylindre porté par un outil. Les devis s'y ajouteront au **lot 2c**, au même point du code. Le `detail` propose la désactivation. |
-| **Décimaux normalisés à l'écriture** | Deux décimales, **quatre** pour `prix_m2_eur`. Ce qui est relu est exactement ce qui a été rangé : l'API ne dit pas deux choses différentes selon le chemin emprunté. |
+| **Décimaux normalisés à l'écriture** | Deux décimales, sauf trois exceptions nommées : **quatre** pour `prix_m2_eur` et `prix_kg_eur`, **trois** pour `ratio_g_m2_couleur` (v1.3). Ce qui est relu est exactement ce qui a été rangé : l'API ne dit pas deux choses différentes selon le chemin emprunté. ⚠️ **La liste est exhaustive** — tout autre champ décimal est à deux décimales, y compris sur une ressource ajoutée plus tard. |
 | **Champs acceptant `null`** | `cylindre.nb_dents` (déjà annoncé), `cylindre.date_inventaire`, et `client.contact` / `email` / `telephone`. ⚠️ **Pour les quatre derniers, c'est un changement CASSANT**, pas une précision — voir le bloc dédié au journal des changements. `email` est par ailleurs une **chaîne libre** : son format n'est pas validé, le carnet d'adresses d'un atelier contient des choses comme « voir le service achats ». |
 | **Valeurs par défaut** | `actif` à `true` ; `forme_speciale` et `silhouette_automatique` à `false` ; `modules` et `modules_requis` à `[]` ; `groupes_couleurs_requis` à `0`. |
 | **Bornes des valeurs** | Le détail est au journal des changements ci-dessus. Deux points méritent d'être lus : **zéro reste accepté sur un prix** — une matière fournie par le client ne coûte rien, et l'interdire obligerait à inventer un tarif ; et **`intervalle_dev_min_mm` accepte zéro**, qui y signifie « pas de contrainte de pose » et non « contrainte nulle ». À l'inverse, un **coefficient** ne peut pas être nul : ils se cumulent multiplicativement, et un seul zéro annulerait la vitesse de toute la configuration. |
@@ -995,6 +996,13 @@ donnée du client, pas de l'imprimeur, et elle contraint l'optimisation.
 
 Même forme que les six autres : même enveloppe de liste, mêmes verbes, mêmes
 codes d'erreur, mêmes règles de `PUT` complet.
+
+⚠️ **Une seule chose diffère, et elle est volontaire : le nombre de décimales.**
+`prix_kg_eur` en porte **quatre** (comme `prix_m2_eur` : au kilo, la
+quatrième pèse sur une bobine entière) et `ratio_g_m2_couleur` en porte
+**trois** (un dépôt se mesure au millième de gramme). Les deux exceptions sont
+inscrites à l'invariant décimal de la section 5 ci-dessus — sinon le front ne
+saurait pas si `"2.000"` lui revient en `"2.00"`.
 
 | Champ | Règle |
 | --- | --- |
